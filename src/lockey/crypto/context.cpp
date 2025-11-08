@@ -1,4 +1,4 @@
-#include "lockey/lockey.hpp"
+#include "lockey/crypto/context.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -7,18 +7,17 @@
 
 #include <sodium.h>
 
+#include "lockey/hash/algorithms.hpp"
+#include "lockey/io/files.hpp"
 #include "lockey/utils/sodium_utils.hpp"
 
 namespace {
 
-using lockey::Lockey;
+using lockey::crypto::Lockey;
 using Algorithm = Lockey::Algorithm;
 using CryptoResult = Lockey::CryptoResult;
 using HashAlgorithm = Lockey::HashAlgorithm;
 using KeyType = Lockey::KeyType;
-
-using lockey::utils::Common;
-using lockey::utils::ensure_sodium_init;
 
 std::vector<uint8_t> normalize_key(const std::vector<uint8_t> &key, size_t required) {
     if (key.size() == required) {
@@ -138,11 +137,11 @@ CryptoResult secretbox_decrypt(const std::vector<uint8_t> &ciphertext_with_nonce
 
 } // namespace
 
-namespace lockey {
+namespace lockey::crypto {
 
 Lockey::Lockey(Algorithm algorithm, HashAlgorithm hash_algo)
     : current_algorithm_(algorithm), current_hash_(hash_algo) {
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 }
 
 void Lockey::set_algorithm(Algorithm algorithm) { current_algorithm_ = algorithm; }
@@ -159,7 +158,7 @@ Lockey::CryptoResult Lockey::encrypt(const std::vector<uint8_t> &plaintext, cons
         return {false, {}, "Current algorithm is not suitable for symmetric encryption"};
     }
 
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     if (current_algorithm_ == Algorithm::XChaCha20_Poly1305) {
         return aead_xchacha_encrypt(plaintext, key, associated_data);
@@ -174,7 +173,7 @@ Lockey::CryptoResult Lockey::decrypt(const std::vector<uint8_t> &ciphertext, con
         return {false, {}, "Current algorithm is not suitable for symmetric decryption"};
     }
 
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     if (current_algorithm_ == Algorithm::XChaCha20_Poly1305) {
         return aead_xchacha_decrypt(ciphertext, key, associated_data);
@@ -189,7 +188,7 @@ Lockey::CryptoResult Lockey::encrypt_asymmetric(const std::vector<uint8_t> &plai
         return {false, {}, "Current algorithm does not support asymmetric encryption"};
     }
 
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     if (public_key.size() != crypto_box_PUBLICKEYBYTES) {
         return {false, {}, "Invalid public key size"};
@@ -209,7 +208,7 @@ Lockey::CryptoResult Lockey::decrypt_asymmetric(const std::vector<uint8_t> &ciph
         return {false, {}, "Current algorithm does not support asymmetric decryption"};
     }
 
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     if (private_key.size() != crypto_box_PUBLICKEYBYTES + crypto_box_SECRETKEYBYTES) {
         return {false, {}, "Invalid private key material"};
@@ -230,7 +229,7 @@ Lockey::CryptoResult Lockey::decrypt_asymmetric(const std::vector<uint8_t> &ciph
 }
 
 Lockey::KeyPair Lockey::generate_keypair() {
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     switch (current_algorithm_) {
     case Algorithm::X25519_Box: {
@@ -265,7 +264,7 @@ Lockey::KeyPair Lockey::generate_keypair() {
 
 Lockey::CryptoResult Lockey::generate_symmetric_key(size_t key_size) {
     try {
-        ensure_sodium_init();
+        utils::ensure_sodium_init();
         std::vector<uint8_t> key(key_size);
         randombytes_buf(key.data(), key.size());
         return {true, key, ""};
@@ -279,7 +278,7 @@ Lockey::CryptoResult Lockey::sign(const std::vector<uint8_t> &data, const std::v
         return {false, {}, "Current algorithm does not support signing"};
     }
 
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     if (private_key.size() != crypto_sign_ed25519_SECRETKEYBYTES) {
         return {false, {}, "Invalid private key size"};
@@ -301,7 +300,7 @@ Lockey::CryptoResult Lockey::verify(const std::vector<uint8_t> &data, const std:
         return {false, {}, "Current algorithm does not support verification"};
     }
 
-    ensure_sodium_init();
+    utils::ensure_sodium_init();
 
     if (public_key.size() != crypto_sign_ed25519_PUBLICKEYBYTES) {
         return {false, {}, "Invalid public key size"};
@@ -312,93 +311,32 @@ Lockey::CryptoResult Lockey::verify(const std::vector<uint8_t> &data, const std:
 }
 
 Lockey::CryptoResult Lockey::hash(const std::vector<uint8_t> &data) {
-    ensure_sodium_init();
-
-    switch (current_hash_) {
-    case HashAlgorithm::SHA256: {
-        std::vector<uint8_t> digest(crypto_hash_sha256_BYTES);
-        crypto_hash_sha256(digest.data(), data.data(), data.size());
-        return {true, digest, ""};
-    }
-    case HashAlgorithm::SHA512: {
-        std::vector<uint8_t> digest(crypto_hash_sha512_BYTES);
-        crypto_hash_sha512(digest.data(), data.data(), data.size());
-        return {true, digest, ""};
-    }
-    case HashAlgorithm::BLAKE2b: {
-        std::vector<uint8_t> digest(crypto_generichash_BYTES);
-        crypto_generichash(digest.data(), digest.size(), data.data(), data.size(), nullptr, 0);
-        return {true, digest, ""};
-    }
-    }
-    return {false, {}, "Unsupported hash algorithm"};
+    auto result = hash::digest(current_hash_, data);
+    return {result.success, std::move(result.data), std::move(result.error_message)};
 }
 
 Lockey::CryptoResult Lockey::hmac(const std::vector<uint8_t> &data, const std::vector<uint8_t> &key) {
-    ensure_sodium_init();
-
-    switch (current_hash_) {
-    case HashAlgorithm::SHA256: {
-        std::vector<uint8_t> mac(crypto_auth_hmacsha256_BYTES);
-        crypto_auth_hmacsha256_state state;
-        crypto_auth_hmacsha256_init(&state, key.data(), key.size());
-        crypto_auth_hmacsha256_update(&state, data.data(), data.size());
-        crypto_auth_hmacsha256_final(&state, mac.data());
-        return {true, mac, ""};
-    }
-    case HashAlgorithm::SHA512: {
-        std::vector<uint8_t> mac(crypto_auth_hmacsha512_BYTES);
-        crypto_auth_hmacsha512_state state;
-        crypto_auth_hmacsha512_init(&state, key.data(), key.size());
-        crypto_auth_hmacsha512_update(&state, data.data(), data.size());
-        crypto_auth_hmacsha512_final(&state, mac.data());
-        return {true, mac, ""};
-    }
-    case HashAlgorithm::BLAKE2b: {
-        if (key.empty()) {
-            return {false, {}, "BLAKE2b HMAC requires non-empty key"};
-        }
-        std::vector<uint8_t> mac(crypto_generichash_BYTES);
-        crypto_generichash(mac.data(), mac.size(), data.data(), data.size(), key.data(), key.size());
-        return {true, mac, ""};
-    }
-    }
-
-    return {false, {}, "Unsupported hash algorithm"};
+    auto result = hash::hmac(current_hash_, data, key);
+    return {result.success, std::move(result.data), std::move(result.error_message)};
 }
 
-bool Lockey::save_key_to_file(const std::vector<uint8_t> &key, const std::string &filename, KeyType, utils::KeyFormat) {
-    try {
-        std::ofstream file(filename, std::ios::binary);
-        if (!file)
-            return false;
-        file.write(reinterpret_cast<const char *>(key.data()), key.size());
-        return file.good();
-    } catch (...) {
-        return false;
-    }
+bool Lockey::save_key_to_file(const std::vector<uint8_t> &key, const std::string &filename, KeyType,
+                              utils::KeyFormat) {
+    return io::write_binary(key, filename);
 }
 
 Lockey::CryptoResult Lockey::load_key_from_file(const std::string &filename, KeyType key_type) {
-    try {
-        std::ifstream file(filename, std::ios::binary);
-        if (!file) {
-            return {false, {}, "Cannot open file"};
-        }
-        std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        if (data.empty()) {
-            return {false, {}, "File empty"};
-        }
-
-        if (auto expected = expected_key_size(key_type)) {
-            if (data.size() != *expected) {
-                return {false, {}, "Unexpected key size"};
-            }
-        }
-        return {true, data, ""};
-    } catch (const std::exception &e) {
-        return {false, {}, e.what()};
+    auto load = io::read_binary(filename);
+    if (!load.success) {
+        return {false, {}, load.error_message};
     }
+
+    if (auto expected = expected_key_size(key_type)) {
+        if (load.data.size() != *expected) {
+            return {false, {}, "Unexpected key size"};
+        }
+    }
+    return {true, load.data, ""};
 }
 
 bool Lockey::save_keypair_to_files(const KeyPair &keypair, const std::string &public_filename,
@@ -420,9 +358,9 @@ Lockey::CryptoResult Lockey::load_keypair_from_files(const std::string &public_f
     return {true, priv.data, ""};
 }
 
-std::string Lockey::to_hex(const std::vector<uint8_t> &data) { return Common::bytes_to_hex(data); }
+std::string Lockey::to_hex(const std::vector<uint8_t> &data) { return utils::Common::bytes_to_hex(data); }
 
-std::vector<uint8_t> Lockey::from_hex(const std::string &hex) { return Common::hex_to_bytes(hex); }
+std::vector<uint8_t> Lockey::from_hex(const std::string &hex) { return utils::Common::hex_to_bytes(hex); }
 
 std::string Lockey::algorithm_to_string(Algorithm algorithm) {
     switch (algorithm) {
@@ -475,4 +413,4 @@ bool Lockey::is_asymmetric_algorithm(Algorithm algo) const { return algo == Algo
 
 bool Lockey::is_signature_algorithm(Algorithm algo) const { return algo == Algorithm::Ed25519; }
 
-} // namespace lockey
+} // namespace lockey::crypto

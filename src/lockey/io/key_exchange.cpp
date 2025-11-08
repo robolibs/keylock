@@ -1,4 +1,4 @@
-#include "lockey/key_exchange.hpp"
+#include "lockey/io/key_exchange.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -102,11 +102,10 @@ struct Envelope {
 
 } // namespace
 
-namespace lockey::key_exchange {
+namespace lockey::io::key_exchange {
 
-Lockey::CryptoResult create_envelope(const std::vector<uint8_t> &payload,
-                                     const std::vector<uint8_t> &recipient_public_key,
-                                     const std::vector<uint8_t> &associated_data) {
+CryptoResult create_envelope(const std::vector<uint8_t> &payload, const std::vector<uint8_t> &recipient_public_key,
+                             const std::vector<uint8_t> &associated_data) {
     utils::ensure_sodium_init();
 
     if (recipient_public_key.size() != crypto_box_PUBLICKEYBYTES) {
@@ -124,9 +123,8 @@ Lockey::CryptoResult create_envelope(const std::vector<uint8_t> &payload,
     return {true, env.serialize(), ""};
 }
 
-Lockey::CryptoResult consume_envelope(const uint8_t *buffer, size_t size,
-                                      const std::vector<uint8_t> &recipient_private_key,
-                                      std::vector<uint8_t> *associated_data_out) {
+CryptoResult consume_envelope(const uint8_t *buffer, size_t size, const std::vector<uint8_t> &recipient_private_key,
+                              std::vector<uint8_t> *associated_data_out) {
     if (!buffer || size == 0) {
         return {false, {}, "Invalid envelope buffer"};
     }
@@ -159,15 +157,14 @@ Lockey::CryptoResult consume_envelope(const uint8_t *buffer, size_t size,
     return {true, std::move(plaintext), ""};
 }
 
-Lockey::CryptoResult consume_envelope(const std::vector<uint8_t> &buffer,
-                                      const std::vector<uint8_t> &recipient_private_key,
-                                      std::vector<uint8_t> *associated_data_out) {
+CryptoResult consume_envelope(const std::vector<uint8_t> &buffer, const std::vector<uint8_t> &recipient_private_key,
+                              std::vector<uint8_t> *associated_data_out) {
     return consume_envelope(buffer.data(), buffer.size(), recipient_private_key, associated_data_out);
 }
 
-Lockey::CryptoResult write_envelope_to_file(const std::vector<uint8_t> &payload,
-                                            const std::vector<uint8_t> &recipient_public_key, const std::string &path,
-                                            const std::vector<uint8_t> &associated_data) {
+CryptoResult write_envelope_to_file(const std::vector<uint8_t> &payload,
+                                    const std::vector<uint8_t> &recipient_public_key, const std::string &path,
+                                    const std::vector<uint8_t> &associated_data) {
     auto env = create_envelope(payload, recipient_public_key, associated_data);
     if (!env.success) {
         return env;
@@ -184,9 +181,8 @@ Lockey::CryptoResult write_envelope_to_file(const std::vector<uint8_t> &payload,
     return {true, {}, ""};
 }
 
-Lockey::CryptoResult read_envelope_from_file(const std::string &path,
-                                             const std::vector<uint8_t> &recipient_private_key,
-                                             std::vector<uint8_t> *associated_data_out) {
+CryptoResult read_envelope_from_file(const std::string &path, const std::vector<uint8_t> &recipient_private_key,
+                                     std::vector<uint8_t> *associated_data_out) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
         return {false, {}, "Unable to open envelope file for reading"};
@@ -198,10 +194,10 @@ Lockey::CryptoResult read_envelope_from_file(const std::string &path,
     return consume_envelope(buffer, recipient_private_key, associated_data_out);
 }
 
-Lockey::CryptoResult write_envelope_to_memory(uint8_t *dest, size_t capacity, size_t &written,
-                                              const std::vector<uint8_t> &payload,
-                                              const std::vector<uint8_t> &recipient_public_key,
-                                              const std::vector<uint8_t> &associated_data) {
+CryptoResult write_envelope_to_memory(uint8_t *dest, size_t capacity, size_t &written,
+                                      const std::vector<uint8_t> &payload,
+                                      const std::vector<uint8_t> &recipient_public_key,
+                                      const std::vector<uint8_t> &associated_data) {
     auto env = create_envelope(payload, recipient_public_key, associated_data);
     if (!env.success) {
         return env;
@@ -216,10 +212,10 @@ Lockey::CryptoResult write_envelope_to_memory(uint8_t *dest, size_t capacity, si
     return {true, {}, ""};
 }
 
-Lockey::CryptoResult read_envelope_from_memory(const uint8_t *src, size_t size,
-                                               const std::vector<uint8_t> &recipient_private_key,
-                                               std::vector<uint8_t> *associated_data_out) {
+CryptoResult read_envelope_from_memory(const uint8_t *src, size_t size,
+                                       const std::vector<uint8_t> &recipient_private_key,
+                                       std::vector<uint8_t> *associated_data_out) {
     return consume_envelope(src, size, recipient_private_key, associated_data_out);
 }
 
-} // namespace lockey::key_exchange
+} // namespace lockey::io::key_exchange

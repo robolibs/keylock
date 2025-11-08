@@ -22,6 +22,7 @@ Lockey wraps the battle-tested **libsodium** toolbox in a clean, zero-dependency
 - **Hashing & HMAC** – SHA-256, SHA-512, and BLAKE2b via libsodium.
 - **Key utilities** – raw key generation, simple file I/O helpers, and hex conversion helpers for debugging.
 - **Robust exchange envelopes** – serialize/libsodium-seal payloads for files or shared memory with integrity checks.
+- **Modular namespaces** – `lockey::crypto`, `lockey::hash`, `lockey::io`, and `lockey::utils` mirror the on-disk layout for easier integration.
 
 ## Quick Start
 
@@ -119,7 +120,7 @@ auto priv = crypto.load_key_from_file("priv.bin", lockey::Lockey::KeyType::PRIVA
 ### Key Exchange Envelopes (files or shared memory)
 
 ```cpp
-#include "lockey/key_exchange.hpp"
+#include "lockey/io/key_exchange.hpp"
 
 lockey::Lockey box(lockey::Lockey::Algorithm::X25519_Box);
 auto recipient = box.generate_keypair();
@@ -127,11 +128,11 @@ auto recipient = box.generate_keypair();
 std::vector<uint8_t> payload = {'s', 'e', 'c', 'r', 'e', 't'};
 std::vector<uint8_t> aad = {'f', 'i', 'l', 'e'};
 
-lockey::key_exchange::write_envelope_to_file(payload, recipient.public_key,
+lockey::io::key_exchange::write_envelope_to_file(payload, recipient.public_key,
                                              "/tmp/lockey.envelope", aad);
 
 std::vector<uint8_t> recovered_aad;
-auto decrypted = lockey::key_exchange::read_envelope_from_file("/tmp/lockey.envelope",
+auto decrypted = lockey::io::key_exchange::read_envelope_from_file("/tmp/lockey.envelope",
                                                                recipient.private_key,
                                                                &recovered_aad);
 ```
@@ -140,8 +141,8 @@ Shared-memory flows use the same envelope bytes:
 
 ```cpp
 std::vector<uint8_t> envelope =
-    lockey::key_exchange::create_envelope(payload, recipient.public_key, aad).data;
-auto opened = lockey::key_exchange::consume_envelope(envelope, recipient.private_key);
+    lockey::io::key_exchange::create_envelope(payload, recipient.public_key, aad).data;
+auto opened = lockey::io::key_exchange::consume_envelope(envelope, recipient.private_key);
 ```
 
 ## Building & Testing

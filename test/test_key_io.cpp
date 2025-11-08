@@ -1,4 +1,4 @@
-#include "lockey/key_exchange.hpp"
+#include "lockey/io/key_exchange.hpp"
 #include "lockey/lockey.hpp"
 #include <doctest/doctest.h>
 #include <filesystem>
@@ -170,12 +170,12 @@ TEST_SUITE("Key I/O Operations") {
         auto path = test_dir + "envelope.bin";
 
         auto write =
-            lockey::key_exchange::write_envelope_to_file(payload, recipient.public_key, path, aad);
+            lockey::io::key_exchange::write_envelope_to_file(payload, recipient.public_key, path, aad);
         REQUIRE(write.success);
 
         std::vector<uint8_t> recovered_aad;
         auto read =
-            lockey::key_exchange::read_envelope_from_file(path, recipient.private_key, &recovered_aad);
+            lockey::io::key_exchange::read_envelope_from_file(path, recipient.private_key, &recovered_aad);
         REQUIRE(read.success);
         CHECK(read.data == payload);
         CHECK(recovered_aad == aad);
@@ -189,12 +189,12 @@ TEST_SUITE("Key I/O Operations") {
         std::vector<uint8_t> payload = {'m', 'e', 'm'};
         std::vector<uint8_t> aad = {'s', 'h', 'm'};
 
-        auto env = lockey::key_exchange::create_envelope(payload, recipient.public_key, aad);
+        auto env = lockey::io::key_exchange::create_envelope(payload, recipient.public_key, aad);
         REQUIRE(env.success);
 
         std::vector<uint8_t> recovered_aad;
         auto opened =
-            lockey::key_exchange::consume_envelope(env.data, recipient.private_key, &recovered_aad);
+            lockey::io::key_exchange::consume_envelope(env.data, recipient.private_key, &recovered_aad);
         REQUIRE(opened.success);
         CHECK(opened.data == payload);
         CHECK(recovered_aad == aad);
@@ -202,12 +202,12 @@ TEST_SUITE("Key I/O Operations") {
         // Direct memory helpers
         std::vector<uint8_t> buffer(env.data.size());
         size_t written = 0;
-        auto written_result = lockey::key_exchange::write_envelope_to_memory(
+        auto written_result = lockey::io::key_exchange::write_envelope_to_memory(
             buffer.data(), buffer.size(), written, payload, recipient.public_key, aad);
         REQUIRE(written_result.success);
         CHECK(written == buffer.size());
 
-        auto mem_read = lockey::key_exchange::read_envelope_from_memory(
+        auto mem_read = lockey::io::key_exchange::read_envelope_from_memory(
             buffer.data(), buffer.size(), recipient.private_key, &recovered_aad);
         REQUIRE(mem_read.success);
         CHECK(mem_read.data == payload);
@@ -219,7 +219,7 @@ TEST_SUITE("Key I/O Operations") {
         auto recipient = crypto.generate_keypair();
 
         std::vector<uint8_t> bogus = {'i', 'n', 'v', 'a', 'l', 'i', 'd'};
-        auto result = lockey::key_exchange::consume_envelope(bogus, recipient.private_key, nullptr);
+        auto result = lockey::io::key_exchange::consume_envelope(bogus, recipient.private_key, nullptr);
         CHECK_FALSE(result.success);
     }
 }
