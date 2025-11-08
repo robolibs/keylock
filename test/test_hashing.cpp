@@ -6,7 +6,8 @@ TEST_SUITE("Hash Functions") {
     const std::vector<uint8_t> empty_data;
 
     TEST_CASE("SHA-256 hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA256);
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::SHA256);
 
         auto result = crypto.hash(test_data);
         REQUIRE(result.success);
@@ -19,17 +20,9 @@ TEST_SUITE("Hash Functions") {
         CHECK(result.data == result2.data);
     }
 
-    TEST_CASE("SHA-384 hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA384);
-
-        auto result = crypto.hash(test_data);
-        REQUIRE(result.success);
-        CHECK(result.data.size() == 48); // SHA-384 produces 48 bytes
-        CHECK(result.error_message.empty());
-    }
-
     TEST_CASE("SHA-512 hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA512);
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::SHA512);
 
         auto result = crypto.hash(test_data);
         REQUIRE(result.success);
@@ -38,16 +31,18 @@ TEST_SUITE("Hash Functions") {
     }
 
     TEST_CASE("BLAKE2b hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::BLAKE2b);
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::BLAKE2b);
 
         auto result = crypto.hash(test_data);
         REQUIRE(result.success);
-        CHECK(result.data.size() == 64); // BLAKE2b produces 64 bytes by default
+        CHECK(result.data.size() == crypto_generichash_BYTES);
         CHECK(result.error_message.empty());
     }
 
     TEST_CASE("Empty data hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA256);
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::SHA256);
 
         auto result = crypto.hash(empty_data);
         REQUIRE(result.success);
@@ -62,7 +57,8 @@ TEST_SUITE("Hash Functions") {
     }
 
     TEST_CASE("Large data hashing") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA256);
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::SHA256);
 
         std::vector<uint8_t> large_data(1000000, 0x41); // 1MB of 'A'
 
@@ -74,24 +70,27 @@ TEST_SUITE("Hash Functions") {
     TEST_CASE("Different algorithms produce different hashes") {
         std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74}; // "test"
 
-        lockey::Lockey crypto256(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA256);
-        lockey::Lockey crypto384(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA384);
-        lockey::Lockey crypto512(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::SHA512);
+        lockey::Lockey crypto256(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                                 lockey::Lockey::HashAlgorithm::SHA256);
+        lockey::Lockey crypto512(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                                 lockey::Lockey::HashAlgorithm::SHA512);
+        lockey::Lockey crypto_blake(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                                    lockey::Lockey::HashAlgorithm::BLAKE2b);
 
         auto hash256 = crypto256.hash(data);
-        auto hash384 = crypto384.hash(data);
         auto hash512 = crypto512.hash(data);
+        auto hash_blake = crypto_blake.hash(data);
 
         REQUIRE(hash256.success);
-        REQUIRE(hash384.success);
         REQUIRE(hash512.success);
+        REQUIRE(hash_blake.success);
 
-        CHECK(hash256.data != hash384.data);
         CHECK(hash256.data != hash512.data);
-        CHECK(hash384.data != hash512.data);
+        CHECK(hash256.data != hash_blake.data);
+        CHECK(hash512.data != hash_blake.data);
 
         CHECK(hash256.data.size() == 32);
-        CHECK(hash384.data.size() == 48);
         CHECK(hash512.data.size() == 64);
+        CHECK(hash_blake.data.size() == crypto_generichash_BYTES);
     }
 }

@@ -1,205 +1,104 @@
 #include "lockey/lockey.hpp"
 #include <doctest/doctest.h>
 
+#include <filesystem>
+
 TEST_SUITE("Missing Functionality Detection") {
-    TEST_CASE("Missing HMAC implementation") {
-        lockey::Lockey crypto;
-        std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74}; // "test"
-        std::vector<uint8_t> key = {0x6b, 0x65, 0x79};        // "key"
+    const std::vector<uint8_t> test_data = {'d', 'a', 't', 'a'};
+
+    TEST_CASE("HMAC implementation available") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::SHA256);
+        std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74};
+        std::vector<uint8_t> key = {0x6b, 0x65, 0x79};
 
         auto result = crypto.hmac(data, key);
-
-        if (!result.success) {
-            MESSAGE("❌ HMAC functionality missing: " << result.error_message);
-        } else {
-            MESSAGE("✅ HMAC functionality implemented");
-        }
+        CHECK(result.success);
+        CHECK(result.data.size() == 32);
     }
 
-    TEST_CASE("Missing BLAKE2b hash implementation") {
-        try {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::BLAKE2b);
-            MESSAGE("✅ BLAKE2b hash algorithm implemented");
-        } catch (const std::exception &e) {
-            MESSAGE("❌ BLAKE2b hash algorithm missing: " << e.what());
-        }
+    TEST_CASE("BLAKE2b hashing works") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305,
+                              lockey::Lockey::HashAlgorithm::BLAKE2b);
+        auto result = crypto.hash({0x01, 0x02});
+        CHECK(result.success);
+        CHECK_FALSE(result.data.empty());
     }
 
-    TEST_CASE("Missing Ed25519 signature implementation") {
-        try {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
-            MESSAGE("✅ Ed25519 signature algorithm implemented");
-        } catch (const std::exception &e) {
-            MESSAGE("❌ Ed25519 signature algorithm missing: " << e.what());
-        }
-    }
-
-    TEST_CASE("Missing ECDSA P-384 implementation") {
-        try {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P384);
-            auto keypair = crypto.generate_keypair();
-            MESSAGE("✅ ECDSA P-384 implemented");
-        } catch (const std::exception &e) {
-            MESSAGE("❌ ECDSA P-384 missing or incomplete: " << e.what());
-        }
-    }
-
-    TEST_CASE("Missing ECDSA P-521 implementation") {
-        try {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P521);
-            auto keypair = crypto.generate_keypair();
-            MESSAGE("✅ ECDSA P-521 implemented");
-        } catch (const std::exception &e) {
-            MESSAGE("❌ ECDSA P-521 missing or incomplete: " << e.what());
-        }
-    }
-
-    TEST_CASE("Missing RSA asymmetric encryption") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_2048);
+    TEST_CASE("Ed25519 signatures available") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
         auto keypair = crypto.generate_keypair();
 
-        std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f}; // "Hello"
+        std::vector<uint8_t> message = {0x74, 0x65, 0x73, 0x74};
+        auto signature = crypto.sign(message, keypair.private_key);
+        REQUIRE(signature.success);
 
-        auto encrypt_result = crypto.encrypt_asymmetric(data, keypair.public_key);
-
-        if (encrypt_result.success) {
-            MESSAGE("✅ RSA asymmetric encryption implemented");
-
-            auto decrypt_result = crypto.decrypt_asymmetric(encrypt_result.data, keypair.private_key);
-            if (decrypt_result.success) {
-                MESSAGE("✅ RSA asymmetric decryption implemented");
-            } else {
-                MESSAGE("❌ RSA asymmetric decryption missing: " << decrypt_result.error_message);
-            }
-        } else {
-            MESSAGE("❌ RSA asymmetric encryption missing: " << encrypt_result.error_message);
-        }
+        auto verify = crypto.verify(message, signature.data, keypair.public_key);
+        CHECK(verify.success);
     }
 
-    TEST_CASE("Missing key I/O operations") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256);
+    TEST_CASE("X25519 asymmetric encryption available") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
         auto keypair = crypto.generate_keypair();
 
-        // Test saving keypair
-        bool save_success = crypto.save_keypair_to_files(keypair, "/tmp/test_pub.pem", "/tmp/test_priv.pem");
+        auto encrypt_result = crypto.encrypt_asymmetric(test_data, keypair.public_key);
+        REQUIRE(encrypt_result.success);
 
-        if (save_success) {
-            MESSAGE("✅ Key saving implemented");
-
-            // Test loading keypair
-            auto load_result = crypto.load_keypair_from_files("/tmp/test_pub.pem", "/tmp/test_priv.pem");
-            if (load_result.success) {
-                MESSAGE("✅ Key loading implemented");
-            } else {
-                MESSAGE("❌ Key loading missing or incomplete: " << load_result.error_message);
-            }
-        } else {
-            MESSAGE("❌ Key saving missing or incomplete");
-        }
+        auto decrypt_result = crypto.decrypt_asymmetric(encrypt_result.data, keypair.private_key);
+        CHECK(decrypt_result.success);
+        CHECK(decrypt_result.data == test_data);
     }
 
-    TEST_CASE("Missing or incomplete signature implementations") {
-        // Test RSA signing
-        {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_2048);
-            auto keypair = crypto.generate_keypair();
-            std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74}; // "test"
+    TEST_CASE("Key I/O round trip") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
+        auto keypair = crypto.generate_keypair();
 
-            auto sign_result = crypto.sign(data, keypair.private_key);
-            if (sign_result.success) {
-                auto verify_result = crypto.verify(data, sign_result.data, keypair.public_key);
-                if (verify_result.success) {
-                    MESSAGE("✅ RSA signing/verification implemented");
-                } else {
-                    MESSAGE("❌ RSA verification incomplete: " << verify_result.error_message);
-                }
-            } else {
-                MESSAGE("❌ RSA signing incomplete: " << sign_result.error_message);
-            }
-        }
+        auto pub = std::filesystem::temp_directory_path() / "lockey_pub.bin";
+        auto priv = std::filesystem::temp_directory_path() / "lockey_priv.bin";
+        auto ok = crypto.save_keypair_to_files(keypair, pub, priv);
+        CHECK(ok);
 
-        // Test ECDSA signing
-        {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256);
-            auto keypair = crypto.generate_keypair();
-            std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74}; // "test"
+        auto load = crypto.load_keypair_from_files(pub, priv);
+        CHECK(load.success);
+        CHECK(load.data == keypair.private_key);
 
-            auto sign_result = crypto.sign(data, keypair.private_key);
-            if (sign_result.success) {
-                auto verify_result = crypto.verify(data, sign_result.data, keypair.public_key);
-                if (verify_result.success) {
-                    MESSAGE("✅ ECDSA P-256 signing/verification implemented");
-                } else {
-                    MESSAGE("❌ ECDSA P-256 verification incomplete: " << verify_result.error_message);
-                }
-            } else {
-                MESSAGE("❌ ECDSA P-256 signing incomplete: " << sign_result.error_message);
-            }
-        }
-    }
-
-    TEST_CASE("Missing error handling improvements") {
-        lockey::Lockey crypto;
-
-        // Test with invalid key size
-        std::vector<uint8_t> invalid_key = {0x01, 0x02}; // Too small
-        std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f};
-
-        auto result = crypto.encrypt(data, invalid_key);
-
-        if (!result.success && !result.error_message.empty()) {
-            MESSAGE("✅ Good error handling for invalid keys: " << result.error_message);
-        } else {
-            MESSAGE("❌ Poor error handling for invalid keys");
-        }
+        std::filesystem::remove(pub);
+        std::filesystem::remove(priv);
     }
 
     TEST_CASE("Implementation completeness summary") {
-        std::vector<std::string> missing_features;
+        std::vector<std::string> missing;
 
-        // Test HMAC
         {
-            lockey::Lockey crypto;
-            std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74};
-            std::vector<uint8_t> key = {0x6b, 0x65, 0x79};
-            auto result = crypto.hmac(data, key);
-            if (!result.success)
-                missing_features.push_back("HMAC");
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+            auto res = crypto.encrypt(test_data, {0x01, 0x02, 0x03});
+            if (!res.success)
+                missing.push_back("XChaCha20 encryption");
         }
 
-        // Test BLAKE2b
-        try {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::BLAKE2b);
-        } catch (...) {
-            missing_features.push_back("BLAKE2b hash");
-        }
-
-        // Test Ed25519
-        try {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
-        } catch (...) {
-            missing_features.push_back("Ed25519 signatures");
-        }
-
-        // Test RSA encryption
         {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_2048);
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::SecretBox_XSalsa20);
+            auto res = crypto.encrypt(test_data, {0x01, 0x02, 0x03});
+            if (!res.success)
+                missing.push_back("SecretBox encryption");
+        }
+
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
             auto keypair = crypto.generate_keypair();
-            std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f};
-            auto result = crypto.encrypt_asymmetric(data, keypair.public_key);
-            if (!result.success)
-                missing_features.push_back("RSA asymmetric encryption");
+            auto enc = crypto.encrypt_asymmetric(test_data, keypair.public_key);
+            if (!enc.success)
+                missing.push_back("X25519 encryption");
         }
 
-        if (missing_features.empty()) {
-            MESSAGE("✅ All major features implemented!");
-        } else {
-            MESSAGE("❌ Missing features detected: " << missing_features.size() << " items");
-            for (const auto &feature : missing_features) {
-                MESSAGE("  - " << feature);
-            }
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
+            auto keypair = crypto.generate_keypair();
+            auto sig = crypto.sign(test_data, keypair.private_key);
+            if (!sig.success)
+                missing.push_back("Ed25519 signing");
         }
 
-        CHECK(missing_features.size() < 10); // Arbitrary threshold for "mostly complete"
+        CHECK(missing.empty());
     }
 }

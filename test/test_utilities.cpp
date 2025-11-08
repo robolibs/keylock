@@ -69,20 +69,16 @@ TEST_SUITE("Utility Functions") {
     }
 
     TEST_CASE("Algorithm name conversion") {
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::AES_256_GCM) == "AES-256-GCM");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::AES_128_GCM) == "AES-128-GCM");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::ChaCha20_Poly1305) == "ChaCha20-Poly1305");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::RSA_2048) == "RSA-2048");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::RSA_4096) == "RSA-4096");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::ECDSA_P256) == "ECDSA-P256");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::ECDSA_P384) == "ECDSA-P384");
-        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::ECDSA_P521) == "ECDSA-P521");
+        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::XChaCha20_Poly1305) ==
+              "XChaCha20-Poly1305");
+        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::SecretBox_XSalsa20) ==
+              "SecretBox-XSalsa20-Poly1305");
+        CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::X25519_Box) == "X25519-Box");
         CHECK(lockey::Lockey::algorithm_to_string(lockey::Lockey::Algorithm::Ed25519) == "Ed25519");
     }
 
     TEST_CASE("Hash algorithm name conversion") {
         CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::SHA256) == "SHA-256");
-        CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::SHA384) == "SHA-384");
         CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::SHA512) == "SHA-512");
         CHECK(lockey::Lockey::hash_algorithm_to_string(lockey::Lockey::HashAlgorithm::BLAKE2b) == "BLAKE2b");
     }

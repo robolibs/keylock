@@ -1,7 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include "../include/lockey/lockey.hpp"
+#include <cstdio>
+#include "lockey/lockey.hpp"
 
 void print_hex(const std::string& label, const std::vector<uint8_t>& data) {
     std::cout << label << ": ";
@@ -12,11 +13,10 @@ void print_hex(const std::string& label, const std::vector<uint8_t>& data) {
 }
 
 void test_symmetric_encryption() {
-    std::cout << "\n=== Testing Symmetric Encryption (AES-256-GCM) ===" << std::endl;
+    std::cout << "\n=== Testing Symmetric Encryption (XChaCha20-Poly1305) ===" << std::endl;
     
     try {
-        // Create Lockey instance with AES-256-GCM
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, 
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305, 
                              lockey::Lockey::HashAlgorithm::SHA256);
         
         // Generate a symmetric key
@@ -71,13 +71,12 @@ void test_key_generation() {
     std::cout << "\n=== Testing Key Generation ===" << std::endl;
     
     try {
-        // Test ECDSA P-256 key generation
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256, 
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box, 
                              lockey::Lockey::HashAlgorithm::SHA256);
         
         auto keypair = crypto.generate_keypair();
         
-        std::cout << "Algorithm: ECDSA P-256" << std::endl;
+        std::cout << "Algorithm: X25519 Box" << std::endl;
         print_hex("Public key", keypair.public_key);
         print_hex("Private key", keypair.private_key);
         
@@ -89,10 +88,10 @@ void test_key_generation() {
 }
 
 void test_digital_signatures() {
-    std::cout << "\n=== Testing Digital Signatures (ECDSA P-256) ===" << std::endl;
+    std::cout << "\n=== Testing Digital Signatures (Ed25519) ===" << std::endl;
     
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256, 
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519, 
                              lockey::Lockey::HashAlgorithm::SHA256);
         
         // Generate a key pair
@@ -132,7 +131,7 @@ void test_hashing() {
     std::cout << "\n=== Testing Hash Functions ===" << std::endl;
     
     try {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, 
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305, 
                              lockey::Lockey::HashAlgorithm::SHA256);
         
         std::string test_data = "The quick brown fox jumps over the lazy dog";

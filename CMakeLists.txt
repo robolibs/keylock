@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(lockey VERSION 0.2.0 LANGUAGES CXX)
 set(project_name lockey)
+
+project(${project_name} VERSION 0.2.0 LANGUAGES CXX)
 
 add_compile_options(-Wall -Wextra -Wpedantic)
 cmake_policy(SET CMP0074 NEW)
@@ -13,7 +14,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(params
     -Wno-reorder
     -Wno-unused-parameter
-    -Wno-sign-compare
 )
 
 string(TOUPPER ${project_name} project_name_upper)
@@ -24,15 +24,43 @@ include(FetchContent)
 # --------------------------------------------------------------------------------------------------
 set(ext_deps)
 
+# Optional dependencies via pkg-config (for MPC, etc.)
+find_package(PkgConfig)
+set(pkg_packs libsodium)
+foreach(pkg IN LISTS pkg_packs)
+    string(TOUPPER ${pkg} pkg_upper)
+    pkg_check_modules(${pkg_upper} ${pkg})
+    if(${pkg_upper}_FOUND)
+        message(STATUS "Found ${pkg}: ${${pkg_upper}_LIBRARIES}")
+        message(STATUS "  Include dirs: ${${pkg_upper}_INCLUDE_DIRS}")
+        message(STATUS "  Library dirs: ${${pkg_upper}_LIBRARY_DIRS}")
+        include_directories(${${pkg_upper}_INCLUDE_DIRS})
+        link_directories(${${pkg_upper}_LIBRARY_DIRS})
+        list(APPEND ext_deps ${${pkg_upper}_LIBRARIES})
+    else()
+        message(WARNING "${pkg} not found")
+    endif()
+endforeach()
 
 # --------------------------------------------------------------------------------------------------
-add_library(${project_name} INTERFACE)
-# Allow users to link via `${project_name}::${project_name}`
+# Build library
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
+
+add_library(${project_name} ${SOURCES})
 add_library(${project_name}::${project_name} ALIAS ${project_name})
-target_include_directories(${project_name} INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+
+target_include_directories(${project_name} 
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
 )
+
+target_link_libraries(${project_name} PRIVATE ${ext_deps})
+
+# Export dependencies as public (headers use them)
+target_link_libraries(${project_name} PUBLIC ${ext_deps})
+
+target_compile_options(${project_name} PRIVATE ${params})
 
 install(
   DIRECTORY include/
@@ -46,8 +74,13 @@ include(GNUInstallDirs)
 #Install headers
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-#Install and export the INTERFACE target
-install(TARGETS ${project_name} EXPORT ${project_name}Targets)
+# Install library and export targets
+install(TARGETS ${project_name} 
+    EXPORT ${project_name}Targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 
 #Install the export file so that `find_package(${project_name})` works
 install(EXPORT ${project_name}Targets
@@ -72,10 +105,7 @@ if(${project_name_upper}_BUILD_EXAMPLES)
     get_filename_component(exec_name "${src_file}" NAME_WE)
     add_executable(${exec_name} "${src_file}")
     target_compile_options(${exec_name} PRIVATE ${params})
-      foreach(lib_file IN LISTS internal_deps)
-        target_sources(${exec_name} PRIVATE "${lib_file}")
-      endforeach()
-    target_link_libraries(${exec_name} ${ext_deps})
+    target_link_libraries(${exec_name} ${project_name}::${project_name} ${ext_deps})
     install(TARGETS ${exec_name} DESTINATION bin)
     list(APPEND exec_names ${exec_name})
   endforeach()
@@ -107,11 +137,8 @@ if(${project_name_upper}_ENABLE_TESTS)
   foreach(src_file IN LISTS test_src)
     get_filename_component(test_name "${src_file}" NAME_WE)
     add_executable(${test_name} "${src_file}")
-      target_compile_options(${test_name} PRIVATE ${params})
-      foreach(lib_file IN LISTS internal_deps)
-        target_sources(${test_name} PRIVATE "${lib_file}")
-      endforeach()
-    target_link_libraries(${test_name} ${ext_deps} doctest_with_main)
+    target_compile_options(${test_name} PRIVATE ${params})
+    target_link_libraries(${test_name} ${project_name}::${project_name} ${ext_deps} doctest_with_main)
     add_test(NAME ${test_name} COMMAND ${test_name})
   endforeach()
 endif()

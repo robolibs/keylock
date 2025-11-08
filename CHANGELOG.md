@@ -4,6 +4,9 @@
 
 ### <!-- 0 -->⛰️  Features
 
+- Migrate Lockey to libsodium-only primitives (XChaCha20, SecretBox, X25519, Ed25519, SHA-256/SHA-512/BLAKE2b)
+- Remove legacy RSA/ECDSA/AES engines along with every OpenSSL comparison helper
+- Add authenticated key-exchange envelopes for file/shared-memory transport
 - Add examples comparing Lockey with OpenSSL chains
 - Implement support for elliptic curve cryptography
 - Feat: Add BLAKE2b hash and improve crypto tests
@@ -30,6 +33,8 @@
 
 ### <!-- 3 -->📚 Documentation
 
+- Rewrite README to describe the libsodium-only surface and updated examples
+- Document the new envelope-based key exchange helpers
 - Update README with comprehensive library documentation
 - Add comprehensive README documentation
 
@@ -40,4 +45,3 @@
 ### Build
 
 - Set up build system infrastructure
-

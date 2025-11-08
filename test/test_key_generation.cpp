@@ -1,5 +1,7 @@
 #include "lockey/lockey.hpp"
 #include <doctest/doctest.h>
+#include <sodium.h>
+#include <stdexcept>
 
 TEST_SUITE("Key Generation") {
     TEST_CASE("Symmetric key generation") {
@@ -26,89 +28,31 @@ TEST_SUITE("Key Generation") {
         CHECK(result.data != result2.data);
     }
 
-    TEST_CASE("RSA-2048 key generation") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_2048);
+    TEST_CASE("X25519 key generation") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::X25519_Box);
 
         auto keypair = crypto.generate_keypair();
-        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::RSA_2048);
-        CHECK_FALSE(keypair.public_key.empty());
-        CHECK_FALSE(keypair.private_key.empty());
+        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::X25519_Box);
+        CHECK(keypair.public_key.size() == crypto_box_PUBLICKEYBYTES);
+        CHECK(keypair.private_key.size() == crypto_box_PUBLICKEYBYTES + crypto_box_SECRETKEYBYTES);
 
-        // Keys should be different
-        CHECK(keypair.public_key != keypair.private_key);
-
-        // Generate another pair - should be different
+        // Keys should be different each time
         auto keypair2 = crypto.generate_keypair();
         CHECK(keypair.public_key != keypair2.public_key);
         CHECK(keypair.private_key != keypair2.private_key);
     }
 
-    TEST_CASE("RSA-4096 key generation") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_4096);
+    TEST_CASE("Ed25519 key generation") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519);
 
         auto keypair = crypto.generate_keypair();
-        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::RSA_4096);
-        CHECK_FALSE(keypair.public_key.empty());
-        CHECK_FALSE(keypair.private_key.empty());
-
-        // RSA-4096 keys should be larger than RSA-2048
-        // Note: This is implementation dependent, but generally true
-        MESSAGE("RSA-4096 public key size: " << keypair.public_key.size());
-        MESSAGE("RSA-4096 private key size: " << keypair.private_key.size());
-    }
-
-    TEST_CASE("ECDSA-P256 key generation") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256);
-
-        auto keypair = crypto.generate_keypair();
-        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::ECDSA_P256);
-        CHECK_FALSE(keypair.public_key.empty());
-        CHECK_FALSE(keypair.private_key.empty());
-
-        // P-256 public key should be 65 bytes (uncompressed format: 0x04 + 32 + 32)
-        CHECK(keypair.public_key.size() == 65);
-        CHECK(keypair.public_key[0] == 0x04); // Uncompressed point indicator
-
-        // P-256 private key should be 32 bytes
-        CHECK(keypair.private_key.size() == 32);
-    }
-
-    TEST_CASE("ECDSA-P384 key generation (might not be implemented)") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P384);
-
-        try {
-            auto keypair = crypto.generate_keypair();
-            CHECK(keypair.algorithm == lockey::Lockey::Algorithm::ECDSA_P384);
-            CHECK_FALSE(keypair.public_key.empty());
-            CHECK_FALSE(keypair.private_key.empty());
-
-            MESSAGE("ECDSA-P384 key generation successful");
-        } catch (const std::exception &e) {
-            MESSAGE("ECDSA-P384 not implemented: " << e.what());
-        }
-    }
-
-    TEST_CASE("ECDSA-P521 key generation (might not be implemented)") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P521);
-
-        try {
-            auto keypair = crypto.generate_keypair();
-            CHECK(keypair.algorithm == lockey::Lockey::Algorithm::ECDSA_P521);
-            CHECK_FALSE(keypair.public_key.empty());
-            CHECK_FALSE(keypair.private_key.empty());
-
-            MESSAGE("ECDSA-P521 key generation successful");
-        } catch (const std::exception &e) {
-            MESSAGE("ECDSA-P521 not implemented: " << e.what());
-        }
-    }
-
-    TEST_CASE("Ed25519 key generation (should fail - not implemented)") {
-        CHECK_THROWS_AS(lockey::Lockey crypto(lockey::Lockey::Algorithm::Ed25519), std::runtime_error);
+        CHECK(keypair.algorithm == lockey::Lockey::Algorithm::Ed25519);
+        CHECK(keypair.public_key.size() == crypto_sign_ed25519_PUBLICKEYBYTES);
+        CHECK(keypair.private_key.size() == crypto_sign_ed25519_SECRETKEYBYTES);
     }
 
     TEST_CASE("Key generation with symmetric algorithm should fail") {
-        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM);
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
 
         CHECK_THROWS_AS(crypto.generate_keypair(), std::runtime_error);
     }
