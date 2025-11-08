@@ -8,6 +8,7 @@
 
 #include <lockey/cert/asn1_utils.hpp>
 #include <lockey/cert/asn1_writer.hpp>
+#include <lockey/cert/parser_utils.hpp>
 #include <lockey/cert/crl.hpp>
 #include <lockey/cert/parser.hpp>
 #include <lockey/cert/pem.hpp>
@@ -215,43 +216,44 @@ namespace lockey::cert {
         return *it;
     }
 
-    std::optional<bool> Certificate::basic_constraints_ca() const {
-        auto ext = find_extension(ExtensionId::BasicConstraints);
-        if (!ext) {
-            return std::nullopt;
-        }
-        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
-        if (!seq.success) {
-            return std::nullopt;
-        }
-        if (seq.value.empty()) {
-            return false;
-        }
-        auto bool_res = parse_boolean(seq.value);
-        if (!bool_res.success) {
-            return std::nullopt;
-        }
-        return bool_res.value;
+std::optional<bool> Certificate::basic_constraints_ca() const {
+    auto ext = find_extension(ExtensionId::BasicConstraints);
+    if (!ext) {
+        return std::nullopt;
     }
+    auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+    if (!seq.success) {
+        return std::nullopt;
+    }
+    detail::DerCursor cursor(seq.value);
+    if (cursor.empty()) {
+        return false;
+    }
+    auto bool_res = parse_boolean(cursor.remaining());
+    if (!bool_res.success) {
+        return std::nullopt;
+    }
+    return bool_res.value;
+}
 
-    std::optional<uint32_t> Certificate::basic_constraints_path_length() const {
-        auto ext = find_extension(ExtensionId::BasicConstraints);
-        if (!ext) {
-            return std::nullopt;
-        }
-        auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
-        if (!seq.success) {
-            return std::nullopt;
-        }
-        size_t offset = 0;
-        auto bool_res = parse_boolean(seq.value);
-        if (bool_res.success) {
-            offset += bool_res.bytes_consumed;
-        }
-        if (offset >= seq.value.size()) {
-            return std::nullopt;
-        }
-        auto int_res = parse_integer(seq.value.subspan(offset));
+std::optional<uint32_t> Certificate::basic_constraints_path_length() const {
+    auto ext = find_extension(ExtensionId::BasicConstraints);
+    if (!ext) {
+        return std::nullopt;
+    }
+    auto seq = parse_sequence(ByteSpan(ext->value.data(), ext->value.size()));
+    if (!seq.success) {
+        return std::nullopt;
+    }
+    detail::DerCursor cursor(seq.value);
+    auto bool_res = parse_boolean(cursor.remaining());
+    if (bool_res.success) {
+        cursor.advance(bool_res.bytes_consumed);
+    }
+    if (cursor.empty()) {
+        return std::nullopt;
+    }
+    auto int_res = parse_integer(cursor.remaining());
         if (!int_res.success) {
             return std::nullopt;
         }
