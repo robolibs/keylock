@@ -1,0 +1,111 @@
+#pragma once
+
+#include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <lockey/hash/algorithms.hpp>
+
+namespace lockey::cert {
+
+constexpr inline size_t ASN1_MAX_TAG_NUMBER = (1U << 28); // Guardrail for corrupted tags
+
+enum class ASN1Class : uint8_t {
+    Universal = 0x00,
+    Application = 0x40,
+    ContextSpecific = 0x80,
+    Private = 0xC0
+};
+
+enum class ASN1Tag : uint8_t {
+    EndOfContent = 0x00,
+    Boolean = 0x01,
+    Integer = 0x02,
+    BitString = 0x03,
+    OctetString = 0x04,
+    Null = 0x05,
+    ObjectIdentifier = 0x06,
+    ObjectDescriptor = 0x07,
+    External = 0x08,
+    Real = 0x09,
+    Enumerated = 0x0A,
+    EmbeddedPdv = 0x0B,
+    UTF8String = 0x0C,
+    RelativeOID = 0x0D,
+    Sequence = 0x10,
+    Set = 0x11,
+    NumericString = 0x12,
+    PrintableString = 0x13,
+    T61String = 0x14,
+    VideotexString = 0x15,
+    IA5String = 0x16,
+    UTCTime = 0x17,
+    GeneralizedTime = 0x18,
+    GraphicString = 0x19,
+    VisibleString = 0x1A,
+    GeneralString = 0x1B,
+    UniversalString = 0x1C,
+    CharacterString = 0x1D,
+    BMPString = 0x1E
+};
+
+struct ASN1Identifier {
+    ASN1Class tag_class{};
+    bool constructed{};
+    uint32_t tag_number{};
+};
+
+enum class SignatureAlgorithmId {
+    Unknown = 0,
+    RsaPkcs1Sha256,
+    RsaPkcs1Sha384,
+    RsaPkcs1Sha512,
+    RsaPssSha256,
+    RsaPssSha384,
+    RsaPssSha512,
+    EcdsaSha256,
+    EcdsaSha384,
+    EcdsaSha512,
+    Ed25519,
+    Ed448
+};
+
+enum class CurveId {
+    Unknown = 0,
+    Secp256r1,
+    Secp384r1,
+    Secp521r1,
+    Secp256k1,
+    Ed25519,
+    Ed448,
+    X25519,
+    X448
+};
+
+enum class ExtensionId {
+    Unknown = 0,
+    BasicConstraints,
+    KeyUsage,
+    ExtendedKeyUsage,
+    SubjectAltName,
+    AuthorityKeyIdentifier,
+    SubjectKeyIdentifier,
+    CertificatePolicies,
+    CRLDistributionPoints,
+    AuthorityInfoAccess,
+    NameConstraints
+};
+
+struct Oid {
+    std::vector<uint32_t> nodes;
+};
+
+struct AlgorithmIdentifier {
+    SignatureAlgorithmId signature{};
+    hash::Algorithm hash{hash::Algorithm::SHA256};
+    CurveId curve{CurveId::Unknown};
+};
+
+} // namespace lockey::cert
