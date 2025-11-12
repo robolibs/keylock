@@ -145,8 +145,9 @@ namespace lockey::verify {
 
         Stats get_stats() const;
 
+        class Impl; // Public for implementation details
+
       private:
-        class Impl;
         std::unique_ptr<Impl> impl_;
     };
 
