@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package lockey.verify;
+
+// Verification service for certificate revocation checking
+service VerifyService {
+    // Check single certificate chain
+    rpc CheckCertificate(VerifyRequest) returns (VerifyResponse);
+    
+    // Check multiple certificate chains in batch
+    rpc CheckBatch(BatchRequest) returns (BatchResponse);
+    
+    // Health check
+    rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// Single verification request
+message VerifyRequest {
+    repeated bytes certificate_der = 1;  // Certificate chain in DER format
+    int64 validation_timestamp = 2;       // Unix timestamp for validation time
+    bytes nonce = 3;                      // Random nonce for replay protection
+    bool include_responder_cert = 4;      // Include server certificate in response
+}
+
+// Verification response
+message VerifyResponse {
+    enum Status {
+        GOOD = 0;
+        REVOKED = 1;
+        UNKNOWN = 2;
+    }
+    
+    Status status = 1;
+    string reason = 2;
+    int64 revocation_time = 3;
+    int64 this_update = 4;
+    int64 next_update = 5;
+    bytes signature = 6;           // Ed25519 signature
+    bytes nonce = 7;                // Echo of request nonce
+    bytes responder_cert_der = 8;   // Optional responder certificate
+}
+
+// Batch request
+message BatchRequest {
+    repeated VerifyRequest requests = 1;
+}
+
+// Batch response
+message BatchResponse {
+    repeated VerifyResponse responses = 1;
+}
+
+// Health check request
+message HealthRequest {
+    // Empty
+}
+
+// Health check response
+message HealthResponse {
+    enum ServingStatus {
+        UNKNOWN = 0;
+        SERVING = 1;
+        NOT_SERVING = 2;
+    }
+    
+    ServingStatus status = 1;
+}

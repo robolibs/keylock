@@ -525,6 +525,54 @@
       "last_modified": "2025-05-31T03:30:20Z",
       "resolved": "github:NixOS/nixpkgs/59138c7667b7970d205d6a05a8bfa2d78caa3643?lastModified=1748662220&narHash=sha256-7gGa49iB9nCnFk4h%2Fg9zwjlQAyjtpgcFkODjcOQS0Es%3D"
     },
+    "grpc@latest": {
+      "last_modified": "2025-10-22T20:59:19Z",
+      "resolved": "github:NixOS/nixpkgs/01b6809f7f9d1183a2b3e081f0a1e6f8f415cb09#grpc",
+      "source": "devbox-search",
+      "version": "1.75.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/95ydj0fp4b3qrld42nm7crn01s36c9n5-grpc-1.75.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/95ydj0fp4b3qrld42nm7crn01s36c9n5-grpc-1.75.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/123makpkmjszzj6wi9mgj534bwrc7rdy-grpc-1.75.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/123makpkmjszzj6wi9mgj534bwrc7rdy-grpc-1.75.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8idhh9ynicqh47wm0s2cjks26b7dn7bw-grpc-1.75.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8idhh9ynicqh47wm0s2cjks26b7dn7bw-grpc-1.75.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dvq2p53l0s7g3flya31d1ln0jdsahp2s-grpc-1.75.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dvq2p53l0s7g3flya31d1ln0jdsahp2s-grpc-1.75.1"
+        }
+      }
+    },
     "libsodium.dev": {
       "resolved": "github:NixOS/nixpkgs/59138c7667b7970d205d6a05a8bfa2d78caa3643?narHash=sha256-7gGa49iB9nCnFk4h%2Fg9zwjlQAyjtpgcFkODjcOQS0Es%3D#libsodium.dev",
       "source": "nixpkg"
@@ -598,6 +646,54 @@
             }
           ],
           "store_path": "/nix/store/i74fk40miw9py84pqilsrr2awwrd091k-libsodium-1.0.20"
+        }
+      }
+    },
+    "protobuf@latest": {
+      "last_modified": "2025-10-22T20:59:19Z",
+      "resolved": "github:NixOS/nixpkgs/01b6809f7f9d1183a2b3e081f0a1e6f8f415cb09#protobuf",
+      "source": "devbox-search",
+      "version": "32.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dglw92zg0pn829d9svzn5n9pdzi75vmh-protobuf-32.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dglw92zg0pn829d9svzn5n9pdzi75vmh-protobuf-32.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5xy3ykz66axhh9fwllrpdyfag423flr3-protobuf-32.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5xy3ykz66axhh9fwllrpdyfag423flr3-protobuf-32.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/92lnm00p6lpmwgbz3mn0l4zxma6ibx88-protobuf-32.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/92lnm00p6lpmwgbz3mn0l4zxma6ibx88-protobuf-32.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/izjrnd79npwzbdcjiv0i36dcw3kigny9-protobuf-32.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/izjrnd79npwzbdcjiv0i36dcw3kigny9-protobuf-32.1"
         }
       }
     },
@@ -803,6 +899,54 @@
             }
           ],
           "store_path": "/nix/store/26q4j2d947bl56za1zz498a0b6g9h8ji-tbb-2020.3.3"
+        }
+      }
+    },
+    "thrift@latest": {
+      "last_modified": "2025-10-22T20:59:19Z",
+      "resolved": "github:NixOS/nixpkgs/01b6809f7f9d1183a2b3e081f0a1e6f8f415cb09#thrift",
+      "source": "devbox-search",
+      "version": "0.22.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/b7fdh74wgphrl1hhgvzh1c9f8ih3g6fb-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/b7fdh74wgphrl1hhgvzh1c9f8ih3g6fb-thrift-0.22.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/xiid4lky1xw9sd5jda5s7nzbgx8flxmz-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/xiid4lky1xw9sd5jda5s7nzbgx8flxmz-thrift-0.22.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/s6r95riarlv07fdvsbspawc7p8ivyd73-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/s6r95riarlv07fdvsbspawc7p8ivyd73-thrift-0.22.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/cr3q30b7igadflnjmrzlmy8c69lgns88-thrift-0.22.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/cr3q30b7igadflnjmrzlmy8c69lgns88-thrift-0.22.0"
         }
       }
     },

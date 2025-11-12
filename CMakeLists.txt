@@ -19,6 +19,7 @@ set(params
 string(TOUPPER ${project_name} project_name_upper)
 option(${project_name_upper}_BUILD_EXAMPLES "Build examples" OFF)
 option(${project_name_upper}_ENABLE_TESTS "Enable tests" OFF)
+option(${project_name_upper}_HAS_VERIFY "Enable gRPC verification support" OFF)
 include(FetchContent)
 
 # --------------------------------------------------------------------------------------------------
@@ -46,6 +47,11 @@ endforeach()
 # Build library
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
+# Exclude verify module sources by default
+if(NOT ${project_name_upper}_HAS_VERIFY)
+    list(FILTER SOURCES EXCLUDE REGEX "src/lockey/verify/.*")
+endif()
+
 add_library(${project_name} ${SOURCES})
 add_library(${project_name}::${project_name} ALIAS ${project_name})
 
@@ -61,6 +67,23 @@ target_link_libraries(${project_name} PRIVATE ${ext_deps})
 target_link_libraries(${project_name} PUBLIC ${ext_deps})
 
 target_compile_options(${project_name} PRIVATE ${params})
+
+# --------------------------------------------------------------------------------------------------
+# Optional: gRPC verification module
+if(${project_name_upper}_HAS_VERIFY)
+    find_package(gRPC CONFIG REQUIRED)
+    find_package(absl CONFIG REQUIRED)
+    target_compile_definitions(${project_name} PUBLIC LOCKEY_HAS_VERIFY)
+    target_link_libraries(${project_name} PUBLIC 
+        gRPC::gpr 
+        gRPC::grpc 
+        gRPC::grpc++
+        absl::log_internal_check_op
+    )
+    message(STATUS "Lockey: gRPC support enabled")
+else()
+    message(STATUS "Lockey: Verify module disabled (use -D${project_name_upper}_HAS_VERIFY=ON to enable)")
+endif()
 
 install(
   DIRECTORY include/
