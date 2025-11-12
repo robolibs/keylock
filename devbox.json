@@ -21,7 +21,9 @@
     "tbb.dev",
     "cli11@latest",
     "libsodium@latest",
-    "libsodium.dev"
+    "libsodium.dev",
+    "grpc@latest",
+    "protobuf@latest"
   ],
   "shell": {
     "init_hook": [

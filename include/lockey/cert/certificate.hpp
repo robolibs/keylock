@@ -15,6 +15,13 @@
 #include <lockey/crypto/context.hpp>
 #include <lockey/hash/algorithms.hpp>
 
+// Forward declarations for optional verify module
+#ifdef LOCKEY_HAS_VERIFY
+namespace lockey::verify {
+    class Client;
+}
+#endif
+
 namespace lockey::cert {
 
     struct Validity {
@@ -320,6 +327,12 @@ namespace lockey::cert {
         bool match_hostname(std::string_view hostname) const;
         bool match_subject(const DistinguishedName &dn) const;
         bool is_revoked(const Crl &crl) const;
+
+#ifdef LOCKEY_HAS_VERIFY
+        // Check revocation status via gRPC verification service
+        CertificateBoolResult check_revocation(verify::Client &client) const;
+#endif
+
         CertificateBoolResult validate_chain(const std::vector<Certificate> &chain, const TrustStore &trust) const;
 
         std::vector<uint8_t> public_key_der() const;

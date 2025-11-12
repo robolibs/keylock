@@ -894,4 +894,32 @@ namespace lockey::cert {
         return purposes;
     }
 
+#ifdef LOCKEY_HAS_VERIFY
+#include <lockey/verify/client.hpp>
+
+    CertificateBoolResult Certificate::check_revocation(verify::Client &client) const {
+        // Create a single certificate chain with just this certificate
+        std::vector<Certificate> chain = {*this};
+
+        // Call the verify client
+        auto result = client.verify_chain(chain);
+
+        if (!result.success) {
+            return CertificateBoolResult::failure("Failed to check revocation: " + result.error);
+        }
+
+        // Check if certificate is revoked
+        if (result.value.status == verify::wire::VerifyStatus::REVOKED) {
+            return CertificateBoolResult::failure("Certificate is revoked: " + result.value.reason);
+        }
+
+        if (result.value.status == verify::wire::VerifyStatus::UNKNOWN) {
+            return CertificateBoolResult::failure("Certificate revocation status unknown");
+        }
+
+        // Certificate is good
+        return CertificateBoolResult::ok(true);
+    }
+#endif
+
 } // namespace lockey::cert
