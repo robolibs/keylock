@@ -11,189 +11,40 @@
 
 ## Overview
 
-Lockey wraps the battle-tested **libsodium** toolbox in a clean, zero-dependency C++20 API. Only modern, authenticated primitives make the cut: XChaCha20-Poly1305, SecretBox (XSalsa20-Poly1305), X25519 sealed boxes, Ed25519 signatures, and SHA-256/SHA-512/BLAKE2b (plus HMAC). No RSA, no ECDSA, no legacy baggage - just high-level helpers around the safe defaults you actually want.
+Lockey wraps the battle-tested **libsodium** library in a clean C++20 API. Only modern, authenticated primitives: XChaCha20-Poly1305, X25519 sealed boxes, Ed25519 signatures, and SHA-256/SHA-512/BLAKE2b. No RSA, no ECDSA, no legacy baggage.
 
-### Design Philosophy
+**Key Features:**
+- **Header-only** - Include `lockey/lockey.hpp` and go, zero compilation
+- **Modern crypto** - XChaCha20-Poly1305 AEAD, X25519 boxes, Ed25519 signatures
+- **Complete X.509 stack** - DER/PEM parsing, certificate builder, CSR/CRL support
+- **Trust store** - System integration, chain validation, hostname verification
+- **Verification protocol** - Optional gRPC-based OCSP alternative (requires `LOCKEY_HAS_VERIFY=ON`)
+- **Type-safe** - Result types for error handling, no exceptions by default
+- **Enterprise PKI** - Policy extensions, name constraints, extended key usage
 
-- **Security First**: Uses only modern, authenticated encryption modes and safe elliptic curves
-- **Zero Dependencies**: Header-only library with only libsodium as runtime dependency
-- **Type Safety**: Strong typing with result types for error handling instead of exceptions
-- **Performance**: Leverages libsodium's optimized implementations with constant-time operations
-- **Simplicity**: Fluent APIs that make the right thing easy and the wrong thing hard
-
-### Key Features
-
-#### Core Cryptography
-- **libsodium-only backend** - every operation delegates to libsodium and calls `sodium_init()` exactly once
-- **Header-only** - include `lockey/lockey.hpp` and go, no compilation required
-- **Modern AEAD encryption** - XChaCha20-Poly1305 and SecretBox XSalsa20-Poly1305 for symmetric encryption with authenticated additional data (AAD)
-- **Curve25519 cryptography** - X25519 sealed boxes for public-key encryption and Ed25519 for deterministic signatures
-- **Multiple hash algorithms** - SHA-256, SHA-512, and BLAKE2b with HMAC support via libsodium
-- **Secure key generation** - Ed25519/X25519 keypair generation with cryptographically secure randomness
-- **Key file management** - Save/load keys in RAW format with format extensibility
-- **Constant-time operations** - Secure comparison and memory clearing to prevent timing attacks
-
-#### X.509 Certificate Management
-- **Full DER/PEM X.509 stack** - Complete ASN.1 parser and writer for certificates without external dependencies
-- **Certificate builder** - Fluent API for creating self-signed, CA, and leaf certificates
-- **CSR support** - Generate and parse Certificate Signing Requests (PKCS#10)
-- **CRL management** - Build and parse Certificate Revocation Lists with multiple revocation reasons
-- **Trust store** - Load from system, PEM, DER files with issuer discovery and chain validation
-- **Certificate validation** - Full chain verification with path length constraints and validity checks
-- **Extension support** - Parse and create Basic Constraints, Key Usage, Extended Key Usage, Subject/Issuer Alternative Names
-- **Enterprise extensions** - Policy Mappings, Policy Constraints, Inhibit Any-Policy for complex PKI hierarchies
-- **Ed25519 focused** - Native Ed25519 certificate support with SPKI encoding/decoding
-- **Hostname verification** - Match certificates against hostnames with wildcard support
-- **Fingerprinting** - Generate certificate fingerprints using any supported hash algorithm
-
-#### Advanced Features
-- **Key exchange envelopes** - Secure payload wrapping for files or shared memory with integrity checks and AAD
-- **Wire format serialization** - Binary envelope format with magic bytes, version headers, and checksums
-- **Memory-safe operations** - Shared memory key exchange with capacity checking
-- **XOR operations** - Byte-level XOR for custom protocol implementations
-- **PKCS#7 padding** - Block cipher padding/unpadding utilities
-- **Hex encoding** - Fast bidirectional hex conversion for debugging and display
-- **Random byte generation** - Cryptographically secure random data via libsodium
-
-#### Certificate Verification Protocol (Optional)
-- **gRPC-based verification** - Modern OCSP alternative built on gRPC/HTTP2 (requires `LOCKEY_HAS_VERIFY=ON`)
-- **Custom wire protocol** - Efficient binary format optimized for Ed25519 certificates
-- **Batch verification** - Verify multiple certificate chains in a single request
-- **Replay protection** - Nonce-based protection against replay attacks
-- **Health checks** - Built-in server health monitoring
-- **TLS support** - Optional mutual TLS authentication for client/server communication
-- **Revocation handler** - In-memory revocation list management with reason tracking
-- **Response signatures** - Ed25519 signed responses with responder certificate validation
-
-#### Utilities
-- **Modular namespaces** - Clean separation: `lockey::crypto`, `lockey::hash`, `lockey::io`, `lockey::utils`, `lockey::cert`, `lockey::verify`
-- **OID registry** - Comprehensive Object Identifier support for X.509 extensions and algorithms
-- **Time formatting** - UTC and GeneralizedTime formatting for certificates
-- **ASN.1 primitives** - Complete set of DER encoding/decoding functions
-- **Result types** - Consistent error handling with success/failure results throughout the API
-
-## Module Architecture
-
-### `lockey::crypto` - Cryptographic Operations
-- Unified context for all libsodium operations
-- Symmetric encryption (XChaCha20-Poly1305, SecretBox XSalsa20-Poly1305)
-- Asymmetric encryption (X25519 sealed boxes)
-- Digital signatures (Ed25519 deterministic signing)
-- Key generation and management
-- Algorithm selection and configuration
-
-### `lockey::hash` - Hashing and MAC
-- SHA-256, SHA-512, BLAKE2b implementations
-- HMAC support for all hash algorithms
-- Consistent API across different algorithms
-- Direct libsodium integration for performance
-
-### `lockey::cert` - X.509 Certificate Stack
-- Complete ASN.1 DER parser and encoder
-- Certificate, CSR, and CRL builders with fluent APIs
-- Trust store management with system integration
-- Extension handling (standard and enterprise)
-- Ed25519 SPKI encoding/decoding
-- OID registry for all standard identifiers
-- Chain validation with path constraints
-
-### `lockey::io` - Input/Output Operations
-- Secure key exchange envelopes
-- File-based envelope persistence
-- Shared memory envelope operations
-- Binary I/O with error handling
-- Wire format serialization
-
-### `lockey::utils` - Common Utilities
-- Cryptographically secure random generation
-- Hex encoding/decoding
-- PKCS#7 padding operations
-- Constant-time comparison
-- Secure memory clearing
-- XOR operations
-- Algorithm constants and sizes
-
-### `lockey::verify` - Certificate Verification Protocol (Optional)
-- gRPC-based client/server implementation
-- Custom binary wire format
-- Batch verification support
-- Revocation list management
-- Response signature validation
-
-## Feature Details
-
-### X.509 Certificate Toolkit
+## Quick Start
 
 ```cpp
-#include "lockey/cert/certificate.hpp"
-#include "lockey/cert/trust_store.hpp"
+#include "lockey/lockey.hpp"
 
-using lockey::cert::Certificate;
-using lockey::cert::TrustStore;
-
-auto chain = Certificate::load("certs/leaf_and_issuer.pem");
-auto trust = TrustStore::load_from_system();
-if (chain.success && trust.success) {
-    const auto &leaf = chain.value.front();
-    std::vector<Certificate> intermediates(chain.value.begin() + 1, chain.value.end());
-    auto verdict = leaf.validate_chain(intermediates, trust.value);
-    if (verdict.success && verdict.value) {
-        std::cout << "Chain ok, fingerprint: "
-                  << lockey::utils::to_hex(leaf.fingerprint(lockey::hash::Algorithm::SHA256)) << "\n";
-    }
+int main() {
+    lockey::Lockey crypto(lockey::Lockey::Algorithm::XChaCha20_Poly1305);
+    
+    auto key = crypto.generate_symmetric_key();
+    auto ciphertext = crypto.encrypt({'H','e','l','l','o'}, key.data);
+    auto plaintext = crypto.decrypt(ciphertext.data, key.data);
 }
 ```
 
-### Certificate and CSR Generation
+## Core Primitives
 
-```cpp
-#include "lockey/cert/builder.hpp"
-#include "lockey/cert/csr_builder.hpp"
-#include "lockey/cert/key_utils.hpp"
-
-auto issuer = lockey::cert::generate_ed25519_keypair();
-auto subject = lockey::cert::generate_ed25519_keypair();
-
-lockey::cert::CertificateBuilder builder;
-builder.set_subject_from_string("CN=Lockey Dev,O=Lockey")
-       .set_subject_public_key_ed25519(subject.public_key)
-       .set_validity(std::chrono::system_clock::now(),
-                     std::chrono::system_clock::now() + std::chrono::hours(24 * 365))
-       .set_basic_constraints(false, std::nullopt)
-       .set_key_usage(lockey::cert::KeyUsageExtension::DigitalSignature);
-auto cert = builder.build_ed25519(issuer, /*self_signed=*/true);
-
-lockey::cert::CsrBuilder csr;
-auto csr_doc = csr.set_subject_from_string("CN=Lockey Client,O=Lockey")
-                  .set_subject_public_key_ed25519(subject.public_key)
-                  .build_ed25519(subject);
-```
-
-### Certificate Revocation Lists (CRL)
-
-```cpp
-#include "lockey/cert/crl_builder.hpp"
-
-lockey::cert::CrlBuilder crl;
-crl.set_issuer_from_string("CN=Lockey CA")
-   .set_this_update(std::chrono::system_clock::now())
-   .add_revoked(cert.value.tbs().serial_number,
-                std::chrono::system_clock::now(),
-                lockey::cert::CrlReason::KeyCompromise);
-auto crl_doc = crl.build_ed25519(issuer);
-bool revoked = cert.value.is_revoked(crl_doc.value);
-```
-
-### Advanced X.509 Features
-
-- **Enterprise PKI Extensions**: Support for Issuer Alternative Name, Policy Mappings, Policy Constraints, and Inhibit Any-Policy extensions
-- **Extended Key Usage**: Full support for serverAuth, clientAuth, codeSigning, emailProtection, timeStamping, and OCSPSigning
-- **Certificate Extensions API**: Programmatic access to all standard and custom X.509v3 extensions
-- **ASN.1 Encoding/Decoding**: Complete DER encoder/decoder for all ASN.1 types (SEQUENCE, SET, INTEGER, BIT STRING, OCTET STRING, OID, UTF8String, PrintableString, IA5String, UTCTime, GeneralizedTime)
-- **Subject Alternative Names**: Support for DNS names, email addresses, IP addresses, and URIs
-- **Distinguished Name Builder**: Fluent API for constructing complex DNs with all standard attributes
-
-See [`docs/X509_USER_GUIDE.md`](docs/X509_USER_GUIDE.md) for detailed certificate API documentation.
+| Primitive | Purpose | Algorithm |
+|-----------|---------|-----------|
+| `XChaCha20_Poly1305` | Symmetric AEAD encryption | 256-bit key, 192-bit nonce |
+| `SecretBox_XSalsa20` | Symmetric secretbox | XSalsa20-Poly1305 |
+| `X25519_Box` | Public-key sealed boxes | Curve25519 |
+| `Ed25519` | Digital signatures | EdDSA on Curve25519 |
+| `SHA256/SHA512/BLAKE2b` | Hashing & HMAC | Multiple hash algorithms |
 
 ## Quick Start
 

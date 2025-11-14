@@ -22,7 +22,6 @@
     "cli11@latest",
     "libsodium@latest",
     "libsodium.dev",
-    "thrift@latest",
     "grpc@latest",
     "protobuf@latest"
   ],
