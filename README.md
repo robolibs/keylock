@@ -255,7 +255,7 @@ int main() {
   lockey::io::write_envelope_to_file(envelope.data, "encrypted.bin");
   ```
 
-- **Optional Verification Protocol** - Lightweight netpipe-based OCSP alternative with Ed25519-signed responses and replay protection. Zero overhead when disabled (`LOCKEY_HAS_VERIFY=OFF`).
+- **Verification Protocol** - Lightweight netpipe-based OCSP alternative with Ed25519-signed responses and replay protection.
   ```cpp
   // Client
   lockey::verify::Client client("localhost:50051");
@@ -283,8 +283,7 @@ make test     # Run 34-test suite
 # Using CMake directly
 cmake -S . -B build \
     -DLOCKEY_BUILD_EXAMPLES=ON \
-    -DLOCKEY_ENABLE_TESTS=ON \
-    -DLOCKEY_HAS_VERIFY=ON     # Optional: enable verification protocol
+    -DLOCKEY_ENABLE_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 
@@ -304,7 +303,6 @@ xmake test
 |--------|---------|-------------|
 | `LOCKEY_BUILD_EXAMPLES` | OFF | Build 14 example programs |
 | `LOCKEY_ENABLE_TESTS` | OFF | Build test suite |
-| `LOCKEY_HAS_VERIFY` | OFF | Enable netpipe verification protocol |
 | `LOCKEY_ENABLE_SIMD` | ON | Enable SIMD optimizations (AVX2/NEON) |
 
 ## Documentation
