@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.0.2] - 2026-01-11
+
+### <!-- 2 -->🚜 Refactor
+
+- Remove Protobuf definition for verification service
+
+### <!-- 3 -->📚 Documentation
+
+- Cleanup gitignore for devbox and build artifacts
+- Refactor documentation and project structure
+- Update docs and remove unused dev dependency
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Refactor build system for modularity and compiler choice
+
 ## [0.3.0] - 2025-11-12
 
 ### <!-- 0 -->⛰️  Features
