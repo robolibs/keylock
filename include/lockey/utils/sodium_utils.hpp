@@ -2,6 +2,6 @@
 
 namespace lockey::utils {
 
-void ensure_sodium_init();
+    void ensure_sodium_init();
 
 } // namespace lockey::utils

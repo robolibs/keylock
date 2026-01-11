@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include <grpcpp/grpcpp.h>
 #include <lockey/cert/certificate.hpp>
 #include <lockey/verify/wire_format.hpp>
 
@@ -17,8 +16,7 @@ namespace lockey::verify {
     struct ClientConfig {
         std::chrono::seconds timeout{5};
         int max_retry_attempts{3};
-        bool enable_compression{true};
-        std::string ca_cert_path; // For TLS verification of server
+        int recv_timeout_ms{5000}; // Receive timeout in milliseconds
 
         ClientConfig() = default;
     };
@@ -51,7 +49,7 @@ namespace lockey::verify {
             static Result<T> failure(std::string err) { return Result<T>{false, {}, std::move(err)}; }
         };
 
-        // Constructor with server address
+        // Constructor with server address (host:port format)
         explicit Client(const std::string &server_address, const ClientConfig &config = ClientConfig{});
 
         ~Client();
@@ -77,6 +75,12 @@ namespace lockey::verify {
 
         // Health check
         Result<bool> health_check();
+
+        // Check if connected to server
+        bool is_connected() const;
+
+        // Reconnect to server (useful after connection loss)
+        bool reconnect();
 
       private:
         class Impl;

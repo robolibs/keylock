@@ -56,9 +56,9 @@ int main(int argc, char *argv[]) {
 
     // Configure server
     lockey::verify::ServerConfig config;
-    config.address = address;
+    config.host = "0.0.0.0";
+    config.port = static_cast<uint16_t>(std::stoi(port));
     config.max_threads = 4;
-    config.enable_compression = true;
 
     std::cout << "Creating server...\n";
     lockey::verify::Server server(handler, config);
@@ -103,9 +103,8 @@ int main(int argc, char *argv[]) {
     std::signal(SIGTERM, signal_handler);
 
     std::cout << "\nServer Configuration:\n";
-    std::cout << "  Address: " << address << "\n";
+    std::cout << "  Address: " << config.host << ":" << config.port << "\n";
     std::cout << "  Threads: " << config.max_threads << "\n";
-    std::cout << "  Compression: " << (config.enable_compression ? "enabled" : "disabled") << "\n";
     std::cout << "  Response Signing: enabled\n";
     std::cout << "\nStarting server...\n";
     std::cout << "Press Ctrl+C to stop\n\n";

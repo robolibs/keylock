@@ -15,18 +15,20 @@
 
 namespace lockey::verify {
 
+    // Method IDs for RPC routing
+    namespace methods {
+        constexpr uint32_t CHECK_CERTIFICATE = 1;
+        constexpr uint32_t CHECK_BATCH = 2;
+        constexpr uint32_t HEALTH_CHECK = 3;
+    } // namespace methods
+
     // Server configuration
     struct ServerConfig {
-        std::string address{"0.0.0.0:50051"};     // Server address and port
+        std::string host{"0.0.0.0"};
+        uint16_t port{50051};
         int max_threads{4};                       // Number of worker threads
-        bool enable_compression{true};            // Enable gzip compression
         std::chrono::seconds shutdown_timeout{5}; // Graceful shutdown timeout
-
-        // TLS configuration (optional)
-        std::string server_cert_path;    // Server certificate (PEM)
-        std::string server_key_path;     // Server private key (PEM)
-        std::string ca_cert_path;        // CA certificate for client verification (optional)
-        bool require_client_cert{false}; // Require client certificate authentication
+        int recv_timeout_ms{5000};                // Receive timeout in milliseconds
 
         ServerConfig() = default;
     };
@@ -91,7 +93,7 @@ namespace lockey::verify {
         mutable std::mutex mutex_;
     };
 
-    // gRPC Verification Server
+    // Netpipe-based Verification Server
     class Server {
       public:
         // Constructor with handler and config

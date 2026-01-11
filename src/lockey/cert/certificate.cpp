@@ -593,17 +593,108 @@ namespace lockey::cert {
             return oids;
         }
 
-        bool wildcard_match(std::string_view pattern, std::string_view hostname) {
-            auto star = pattern.find('*');
-            if (star == std::string_view::npos) {
-                return equals_case_insensitive(pattern, hostname);
+        // Count dot-separated labels in a hostname
+        size_t label_count(std::string_view name) {
+            if (name.empty())
+                return 0;
+            size_t count = 1;
+            for (char c : name) {
+                if (c == '.')
+                    count++;
             }
-            auto suffix = pattern.substr(star + 1);
-            if (hostname.size() < suffix.size()) {
+            return count;
+        }
+
+        bool parse_ipv4(std::string_view s, std::array<uint8_t, 4> &out) {
+            int parts = 0;
+            uint32_t acc = 0;
+            int acc_len = 0;
+            std::array<uint8_t, 4> bytes{};
+            for (size_t i = 0; i <= s.size(); ++i) {
+                char c = (i < s.size()) ? s[i] : '.'; // force flush at end
+                if (c >= '0' && c <= '9') {
+                    acc = acc * 10 + static_cast<uint32_t>(c - '0');
+                    if (++acc_len > 3)
+                        return false;
+                    if (acc > 255)
+                        return false;
+                } else if (c == '.') {
+                    if (acc_len == 0)
+                        return false;
+                    if (parts >= 4)
+                        return false;
+                    bytes[parts++] = static_cast<uint8_t>(acc);
+                    acc = 0;
+                    acc_len = 0;
+                } else {
+                    return false;
+                }
+            }
+            if (parts != 4)
                 return false;
+            out = bytes;
+            return true;
+        }
+
+        bool is_ipv4_literal(std::string_view s) {
+            std::array<uint8_t, 4> tmp{};
+            return parse_ipv4(s, tmp);
+        }
+
+        bool ipv4_equal_bytes(std::string_view bytes_str, const std::array<uint8_t, 4> &ip) {
+            if (bytes_str.size() != 4)
+                return false;
+            const unsigned char *p = reinterpret_cast<const unsigned char *>(bytes_str.data());
+            for (size_t i = 0; i < 4; ++i) {
+                if (p[i] != ip[i])
+                    return false;
             }
-            auto host_suffix = hostname.substr(hostname.size() - suffix.size());
-            return equals_case_insensitive(suffix, host_suffix);
+            return true;
+        }
+
+        // RFC 6125-style wildcard: only "*.example.com"-like patterns allowed
+        bool wildcard_match(std::string_view pattern, std::string_view hostname) {
+            // Lowercase copies for case-insensitive compare
+            std::string p(pattern);
+            std::string h(hostname);
+            std::transform(p.begin(), p.end(), p.begin(), [](unsigned char c) { return std::tolower(c); });
+            std::transform(h.begin(), h.end(), h.begin(), [](unsigned char c) { return std::tolower(c); });
+
+            auto star = p.find('*');
+            if (star == std::string::npos) {
+                return p == h;
+            }
+
+            // Only allow a single '*' at start of left-most label ("*.")
+            if (star != 0)
+                return false;
+            if (p.size() < 3 || p[1] != '.')
+                return false; // must be "*."
+            if (p.find('*', 1) != std::string::npos)
+                return false; // only one '*'
+
+            std::string suffix = p.substr(2); // after '*.'
+            if (suffix.empty())
+                return false;
+
+            // Wildcard covers exactly one label
+            if (label_count(h) != label_count(p))
+                return false;
+
+            if (h.size() < suffix.size() + 1)
+                return false; // need at least one label for '*'
+            std::string host_suffix = h.substr(h.size() - suffix.size());
+            if (host_suffix != suffix)
+                return false;
+
+            // Ensure the left-most portion is a single label (no dot)
+            size_t prefix_len = h.size() - suffix.size();
+            if (prefix_len == 0)
+                return false;
+            if (h[prefix_len - 1] != '.')
+                return false;
+            std::string left = h.substr(0, prefix_len - 1);
+            return !left.empty() && left.find('.') == std::string::npos;
         }
 
     } // namespace
@@ -655,14 +746,39 @@ namespace lockey::cert {
 
     bool Certificate::match_hostname(std::string_view hostname) const {
         auto names = subject_alt_names();
-        for (const auto &name : names) {
-            if (name.type != SubjectAltNameExtension::GeneralNameType::DNSName) {
-                continue;
+        const bool has_san = !names.empty();
+
+        // If hostname is an IPv4 literal, only match against IPAddress SANs
+        std::array<uint8_t, 4> ip4{};
+        if (is_ipv4_literal(hostname)) {
+            parse_ipv4(hostname, ip4);
+            for (const auto &name : names) {
+                if (name.type == SubjectAltNameExtension::GeneralNameType::IPAddress) {
+                    if (ipv4_equal_bytes(name.value, ip4)) {
+                        return true;
+                    }
+                }
             }
-            if (wildcard_match(name.value, hostname)) {
-                return true;
+            // If SANs exist, do not fall back to CN
+            return false;
+        }
+
+        // Otherwise, match against DNSName SANs (RFC 6125)
+        bool saw_dns_san = false;
+        for (const auto &name : names) {
+            if (name.type == SubjectAltNameExtension::GeneralNameType::DNSName) {
+                saw_dns_san = true;
+                if (wildcard_match(name.value, hostname)) {
+                    return true;
+                }
             }
         }
+        if (has_san) {
+            // SAN present but no match
+            return false;
+        }
+
+        // No SAN extension: fall back to Common Name
         if (auto cn = tbs_.subject.first(DistinguishedNameAttribute::CommonName)) {
             return wildcard_match(*cn, hostname);
         }
@@ -766,8 +882,18 @@ namespace lockey::cert {
             if (!child.check_validity()) {
                 return CertificateBoolResult::ok(false);
             }
+            // Issuer certificate must also be within its validity period
+            if (!issuer.check_validity()) {
+                return CertificateBoolResult::ok(false);
+            }
             if (!issuer.basic_constraints_ca().value_or(false)) {
                 return CertificateBoolResult::ok(false);
+            }
+            // If KeyUsage is present on the issuer, it must include keyCertSign
+            if (auto ku = issuer.key_usage_bits()) {
+                if (static_cast<uint16_t>(*ku & KeyUsageExtension::KeyCertSign) == 0) {
+                    return CertificateBoolResult::ok(false);
+                }
             }
             auto path_len = issuer.basic_constraints_path_length();
             if (path_len.has_value()) {

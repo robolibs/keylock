@@ -1,8 +1,8 @@
 /**
- * Example: Certificate revocation checking using gRPC verification service
+ * Example: Certificate revocation checking using netpipe verification service
  *
  * This example demonstrates how to use the Lockey Verification Protocol (LVP)
- * to check certificate revocation status via a gRPC server.
+ * to check certificate revocation status via a netpipe server.
  *
  * Build with: cmake -DLOCKEY_HAS_VERIFY=ON -DLOCKEY_BUILD_EXAMPLES=ON
  */
@@ -38,12 +38,11 @@ int main(int argc, char *argv[]) {
     std::cout << "Certificate loaded successfully\n";
     std::cout << "Subject: " << cert.tbs().subject.to_string() << "\n\n";
 
-    // Configure gRPC client
+    // Configure netpipe client
     std::cout << "Connecting to verification server: " << server_addr << "\n";
     lockey::verify::ClientConfig config;
     config.timeout = std::chrono::seconds(10);
     config.max_retry_attempts = 3;
-    config.enable_compression = true;
 
     lockey::verify::Client client(server_addr, config);
 

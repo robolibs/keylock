@@ -1,6 +1,6 @@
 /**
  * Test: Verification Server
- * Tests the gRPC verification server implementation
+ * Tests the netpipe verification server implementation
  */
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
@@ -115,7 +115,8 @@ TEST_CASE("Server - Construction and Configuration") {
 
     SUBCASE("Default configuration") {
         verify::ServerConfig config;
-        config.address = "localhost:50052"; // Use different port for testing
+        config.host = "localhost";
+        config.port = 50052; // Use different port for testing
 
         verify::Server server(handler, config);
         CHECK(server.address() == "localhost:50052");
@@ -124,7 +125,8 @@ TEST_CASE("Server - Construction and Configuration") {
 
     SUBCASE("Set signing key") {
         verify::ServerConfig config;
-        config.address = "localhost:50053";
+        config.host = "localhost";
+        config.port = 50053;
 
         verify::Server server(handler, config);
 
@@ -142,7 +144,8 @@ TEST_CASE("Server - Construction and Configuration") {
 
     SUBCASE("Set responder certificate") {
         verify::ServerConfig config;
-        config.address = "localhost:50054";
+        config.host = "localhost";
+        config.port = 50054;
 
         verify::Server server(handler, config);
 
@@ -175,7 +178,8 @@ TEST_CASE("Server - Construction and Configuration") {
 TEST_CASE("Server - Statistics") {
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
     verify::ServerConfig config;
-    config.address = "localhost:50055";
+    config.host = "localhost";
+    config.port = 50055;
 
     verify::Server server(handler, config);
 
@@ -195,7 +199,8 @@ TEST_CASE("Server-Client Integration") {
 
     auto handler = std::make_shared<verify::SimpleRevocationHandler>();
     verify::ServerConfig server_config;
-    server_config.address = "localhost:50056";
+    server_config.host = "localhost";
+    server_config.port = 50056;
 
     verify::Server server(handler, server_config);
 

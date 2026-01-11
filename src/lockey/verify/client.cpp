@@ -1,54 +1,63 @@
 #ifdef LOCKEY_HAS_VERIFY
 
-#include <grpcpp/create_channel.h>
-#include <grpcpp/generic/generic_stub_callback.h>
-#include <grpcpp/security/credentials.h>
-#include <grpcpp/support/channel_arguments.h>
 #include <lockey/verify/client.hpp>
-#include <lockey/verify/codec.hpp>
-#include <sodium.h>
+#include <lockey/verify/server.hpp> // For method IDs
 
-#include <condition_variable>
-#include <mutex>
+#include <netpipe/remote/remote.hpp>
+#include <netpipe/stream/tcp_stream.hpp>
+
+#include <sodium.h>
+#include <sstream>
 
 namespace lockey::verify {
+
+    // Helper to parse host:port string
+    static bool parse_address(const std::string &address, std::string &host, uint16_t &port) {
+        auto colon_pos = address.rfind(':');
+        if (colon_pos == std::string::npos) {
+            return false;
+        }
+
+        host = address.substr(0, colon_pos);
+        try {
+            port = static_cast<uint16_t>(std::stoi(address.substr(colon_pos + 1)));
+        } catch (...) {
+            return false;
+        }
+        return true;
+    }
 
     // PIMPL implementation
     class Client::Impl {
       public:
-        std::shared_ptr<grpc::Channel> channel;
-        std::unique_ptr<grpc::GenericStubCallback> stub;
+        std::string server_address;
+        std::string host;
+        uint16_t port{0};
+        netpipe::TcpStream stream;
+        std::unique_ptr<netpipe::Remote<netpipe::Unidirect>> remote;
         ClientConfig config;
         std::optional<cert::Certificate> responder_cert;
+        bool connected{false};
 
-        explicit Impl(const std::string &server_address, const ClientConfig &cfg) : config(cfg) {
-
-            // Setup channel arguments
-            grpc::ChannelArguments args;
-            if (config.enable_compression) {
-                args.SetCompressionAlgorithm(GRPC_COMPRESS_GZIP);
+        explicit Impl(const std::string &address, const ClientConfig &cfg) : server_address(address), config(cfg) {
+            if (!parse_address(address, host, port)) {
+                throw std::invalid_argument("Invalid server address format. Expected host:port");
             }
-            args.SetMaxReceiveMessageSize(10 * 1024 * 1024); // 10MB max
-            args.SetMaxSendMessageSize(10 * 1024 * 1024);    // 10MB max
+        }
 
-            // Create credentials
-            std::shared_ptr<grpc::ChannelCredentials> creds;
-            if (!config.ca_cert_path.empty()) {
-                // TLS with custom CA certificate
-                grpc::SslCredentialsOptions ssl_opts;
-                // TODO: Read CA cert from file
-                // ssl_opts.pem_root_certs = read_file(config.ca_cert_path);
-                creds = grpc::SslCredentials(ssl_opts);
-            } else {
-                // Insecure channel (for development/testing)
-                creds = grpc::InsecureChannelCredentials();
+        bool connect() {
+            netpipe::TcpEndpoint endpoint{host, port};
+            auto connect_result = stream.connect(endpoint);
+
+            if (connect_result.is_err()) {
+                connected = false;
+                return false;
             }
 
-            // Create channel
-            channel = grpc::CreateCustomChannel(server_address, creds, args);
-
-            // Create generic stub for custom binary protocol
-            stub = std::make_unique<grpc::GenericStubCallback>(channel);
+            stream.set_recv_timeout(config.recv_timeout_ms);
+            remote = std::make_unique<netpipe::Remote<netpipe::Unidirect>>(stream);
+            connected = true;
+            return true;
         }
 
         ~Impl() = default;
@@ -56,7 +65,11 @@ namespace lockey::verify {
 
     // Constructor
     Client::Client(const std::string &server_address, const ClientConfig &config)
-        : impl_(std::make_unique<Impl>(server_address, config)) {}
+        : impl_(std::make_unique<Impl>(server_address, config)) {
+
+        // Attempt initial connection
+        impl_->connect();
+    }
 
     // Destructor
     Client::~Client() = default;
@@ -67,12 +80,26 @@ namespace lockey::verify {
     // Move assignment
     Client &Client::operator=(Client &&) noexcept = default;
 
+    bool Client::is_connected() const { return impl_->connected && impl_->stream.is_connected(); }
+
+    bool Client::reconnect() {
+        impl_->stream.close();
+        impl_->remote.reset();
+        return impl_->connect();
+    }
+
     // Verify single certificate chain
     Client::Result<Client::Response> Client::verify_chain(const std::vector<cert::Certificate> &chain,
                                                           std::chrono::system_clock::time_point validation_time) {
 
         if (chain.empty()) {
             return Result<Response>::failure("Certificate chain is empty");
+        }
+
+        if (!is_connected()) {
+            if (!reconnect()) {
+                return Result<Response>::failure("Failed to connect to server");
+            }
         }
 
         // Build wire format request
@@ -90,50 +117,25 @@ namespace lockey::verify {
         randombytes_buf(wire_req.nonce.data(), wire_req.nonce.size());
 
         // Serialize request
-        grpc::ByteBuffer request_buffer;
-        auto serialize_status = CustomCodec::serialize_request(wire_req, &request_buffer);
-        if (!serialize_status.ok()) {
-            return Result<Response>::failure("Failed to serialize request: " +
-                                             std::string(serialize_status.error_message()));
-        }
+        auto request_data = wire::Serializer::serialize(wire_req);
+        netpipe::Message request_msg(request_data.begin(), request_data.end());
 
-        // Setup RPC context
-        grpc::ClientContext context;
-        context.set_deadline(std::chrono::system_clock::now() + impl_->config.timeout);
+        // Call server
+        auto timeout_ms = static_cast<uint32_t>(impl_->config.timeout.count() * 1000);
+        auto call_result = impl_->remote->call(methods::CHECK_CERTIFICATE, request_msg, timeout_ms);
 
-        // Call the server (generic call with custom binary protocol)
-        grpc::ByteBuffer response_buffer;
-
-        // Use synchronous wrapper for async callback API
-        std::mutex mutex;
-        std::condition_variable cv;
-        bool done = false;
-        grpc::Status status;
-
-        impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/CheckCertificate", grpc::StubOptions(),
-                               &request_buffer, &response_buffer, [&](grpc::Status s) {
-                                   std::lock_guard<std::mutex> lock(mutex);
-                                   status = std::move(s);
-                                   done = true;
-                                   cv.notify_one();
-                               });
-
-        // Wait for completion
-        {
-            std::unique_lock<std::mutex> lock(mutex);
-            cv.wait(lock, [&] { return done; });
-        }
-
-        if (!status.ok()) {
-            return Result<Response>::failure("RPC failed: " + std::string(status.error_message()));
+        if (call_result.is_err()) {
+            impl_->connected = false;
+            return Result<Response>::failure("RPC failed: " + std::string(call_result.error().message));
         }
 
         // Deserialize response
+        auto &response_msg = call_result.value();
+        std::vector<uint8_t> response_data(response_msg.begin(), response_msg.end());
+
         wire::VerifyResponse wire_resp;
-        auto deserialize_status = CustomCodec::deserialize_response(&response_buffer, wire_resp);
-        if (!deserialize_status.ok()) {
-            return Result<Response>::failure("Failed to deserialize response: " +
-                                             std::string(deserialize_status.error_message()));
+        if (!wire::Serializer::deserialize(response_data, wire_resp)) {
+            return Result<Response>::failure("Failed to deserialize response");
         }
 
         // Verify nonce matches
@@ -170,6 +172,12 @@ namespace lockey::verify {
             return Result<std::vector<Response>>::failure("No chains provided");
         }
 
+        if (!is_connected()) {
+            if (!reconnect()) {
+                return Result<std::vector<Response>>::failure("Failed to connect to server");
+            }
+        }
+
         // Build batch request
         wire::BatchVerifyRequest batch_req;
         for (const auto &chain : chains) {
@@ -194,50 +202,25 @@ namespace lockey::verify {
         }
 
         // Serialize request
-        grpc::ByteBuffer request_buffer;
-        auto serialize_status = CustomCodec::serialize_request(batch_req, &request_buffer);
-        if (!serialize_status.ok()) {
-            return Result<std::vector<Response>>::failure("Failed to serialize batch request: " +
-                                                          std::string(serialize_status.error_message()));
-        }
+        auto request_data = wire::Serializer::serialize(batch_req);
+        netpipe::Message request_msg(request_data.begin(), request_data.end());
 
-        // Setup RPC context
-        grpc::ClientContext context;
-        context.set_deadline(std::chrono::system_clock::now() + impl_->config.timeout);
+        // Call server
+        auto timeout_ms = static_cast<uint32_t>(impl_->config.timeout.count() * 1000);
+        auto call_result = impl_->remote->call(methods::CHECK_BATCH, request_msg, timeout_ms);
 
-        // Call the server
-        grpc::ByteBuffer response_buffer;
-
-        // Use synchronous wrapper for async callback API
-        std::mutex mutex;
-        std::condition_variable cv;
-        bool done = false;
-        grpc::Status status;
-
-        impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/CheckBatch", grpc::StubOptions(),
-                               &request_buffer, &response_buffer, [&](grpc::Status s) {
-                                   std::lock_guard<std::mutex> lock(mutex);
-                                   status = std::move(s);
-                                   done = true;
-                                   cv.notify_one();
-                               });
-
-        // Wait for completion
-        {
-            std::unique_lock<std::mutex> lock(mutex);
-            cv.wait(lock, [&] { return done; });
-        }
-
-        if (!status.ok()) {
-            return Result<std::vector<Response>>::failure("RPC failed: " + std::string(status.error_message()));
+        if (call_result.is_err()) {
+            impl_->connected = false;
+            return Result<std::vector<Response>>::failure("RPC failed: " + std::string(call_result.error().message));
         }
 
         // Deserialize response
+        auto &response_msg = call_result.value();
+        std::vector<uint8_t> response_data(response_msg.begin(), response_msg.end());
+
         wire::BatchVerifyResponse batch_resp;
-        auto deserialize_status = CustomCodec::deserialize_response(&response_buffer, batch_resp);
-        if (!deserialize_status.ok()) {
-            return Result<std::vector<Response>>::failure("Failed to deserialize batch response: " +
-                                                          std::string(deserialize_status.error_message()));
+        if (!wire::Serializer::deserialize(response_data, batch_resp)) {
+            return Result<std::vector<Response>>::failure("Failed to deserialize batch response");
         }
 
         // Convert to client responses
@@ -266,53 +249,33 @@ namespace lockey::verify {
 
     // Health check
     Client::Result<bool> Client::health_check() {
+        if (!is_connected()) {
+            if (!reconnect()) {
+                return Result<bool>::failure("Failed to connect to server");
+            }
+        }
+
         wire::HealthCheckRequest req;
 
         // Serialize request
-        grpc::ByteBuffer request_buffer;
-        auto serialize_status = CustomCodec::serialize_request(req, &request_buffer);
-        if (!serialize_status.ok()) {
-            return Result<bool>::failure("Failed to serialize health check: " +
-                                         std::string(serialize_status.error_message()));
-        }
+        auto request_data = wire::Serializer::serialize(req);
+        netpipe::Message request_msg(request_data.begin(), request_data.end());
 
-        // Setup RPC context
-        grpc::ClientContext context;
-        context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
+        // Call server with 5 second timeout
+        auto call_result = impl_->remote->call(methods::HEALTH_CHECK, request_msg, 5000);
 
-        // Call the server
-        grpc::ByteBuffer response_buffer;
-
-        // Use synchronous wrapper for async callback API
-        std::mutex mutex;
-        std::condition_variable cv;
-        bool done = false;
-        grpc::Status status;
-
-        impl_->stub->UnaryCall(&context, "/lockey.verify.VerifyService/HealthCheck", grpc::StubOptions(),
-                               &request_buffer, &response_buffer, [&](grpc::Status s) {
-                                   std::lock_guard<std::mutex> lock(mutex);
-                                   status = std::move(s);
-                                   done = true;
-                                   cv.notify_one();
-                               });
-
-        // Wait for completion
-        {
-            std::unique_lock<std::mutex> lock(mutex);
-            cv.wait(lock, [&] { return done; });
-        }
-
-        if (!status.ok()) {
-            return Result<bool>::failure("Health check failed: " + std::string(status.error_message()));
+        if (call_result.is_err()) {
+            impl_->connected = false;
+            return Result<bool>::failure("Health check failed: " + std::string(call_result.error().message));
         }
 
         // Deserialize response
+        auto &response_msg = call_result.value();
+        std::vector<uint8_t> response_data(response_msg.begin(), response_msg.end());
+
         wire::HealthCheckResponse resp;
-        auto deserialize_status = CustomCodec::deserialize_response(&response_buffer, resp);
-        if (!deserialize_status.ok()) {
-            return Result<bool>::failure("Failed to deserialize health check response: " +
-                                         std::string(deserialize_status.error_message()));
+        if (!wire::Serializer::deserialize(response_data, resp)) {
+            return Result<bool>::failure("Failed to deserialize health check response");
         }
 
         bool healthy = (resp.status == wire::HealthCheckResponse::ServingStatus::SERVING);

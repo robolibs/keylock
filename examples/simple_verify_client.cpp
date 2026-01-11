@@ -64,7 +64,6 @@ int main(int argc, char *argv[]) {
     lockey::verify::ClientConfig config;
     config.timeout = std::chrono::seconds(10);
     config.max_retry_attempts = 3;
-    config.enable_compression = true;
 
     lockey::verify::Client client(server_addr, config);
 
