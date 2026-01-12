@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.4] - 2026-01-12
+
+### <!-- 2 -->🚜 Refactor
+
+- Rename `lockey` project to `keylock`
+
 ## [0.0.3] - 2026-01-11
 
 ### <!-- 0 -->⛰️  Features
