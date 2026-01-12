@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.15)
 # ==================================================================================================
 # Project configuration
 # ==================================================================================================
-set(PROJECT_NAME lockey)
-set(PROJECT_VERSION "0.0.3")
+set(PROJECT_NAME keylock)
+set(PROJECT_VERSION "0.0.4")
 
 # Dependencies formats:
 #   Git:    set(LIB_DEPS "name|https://github.com/org/repo.git|tag" ...)
