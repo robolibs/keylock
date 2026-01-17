@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.7] - 2026-01-17
+
+### <!-- 0 -->⛰️  Features
+
+- Refactor verification protocol for transport-agnostic design
+
 ## [0.0.6] - 2026-01-17
 
 ### <!-- 0 -->⛰️  Features
