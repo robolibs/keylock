@@ -532,7 +532,6 @@ namespace keylock::hash::streebog {
              0x9273540deda2f122ull, 0xc797d02fd3f14261ull, 0xe1e2f06a284d674aull, 0xd2be8c74c97cfd80ull,
              0x9a494faf67707e71ull, 0xb3dbd1eca9908293ull, 0x72d14d3493b2e388ull, 0xd6a30f258c153427ull}};
 
-        template <typename V>
         const uint64_t inline constexpr RC[12][8] = {
             {0xdd806559f2a64507ull, 0x05767436cc744d23ull, 0xa2422a08a460d315ull, 0x4b7ce09192676901ull,
              0x714eb88d7585c4fcull, 0x2f6a76432e45d016ull, 0xebcb2f81c0657c1full, 0xb1085bda1ecadae9ull},
