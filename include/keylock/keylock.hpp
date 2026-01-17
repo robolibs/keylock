@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keylock/crypto/compat_constants.hpp"
 #include "keylock/crypto/context.hpp"
 
 namespace keylock {

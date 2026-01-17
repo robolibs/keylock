@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-#include <sodium.h>
-
 #include <keylock/utils/common.hpp>
 
 namespace keylock::verify::wire {
@@ -337,7 +335,7 @@ namespace keylock::verify::wire {
         std::vector<uint8_t> nonce = request.nonce;
         if (nonce.empty()) {
             nonce.resize(32);
-            randombytes_buf(nonce.data(), nonce.size());
+            ::keylock::crypto::rng::randombytes_buf(nonce.data(), nonce.size());
         }
         write_bytes(buffer, nonce);
 

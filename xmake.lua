@@ -11,7 +11,6 @@ local PROJECT_VERSION = "0.0.9"
 local LIB_DEPS = {
     {"echo", "https://github.com/bresilla/echo.git", "0.0.23"},
     {"datapod", "https://github.com/robolibs/datapod.git", "0.0.34"},
-    {system = "libsodium"},
 }
 local EXAMPLE_DEPS = {
     {system = "rerun_sdk"},

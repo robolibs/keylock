@@ -11,23 +11,20 @@
 #include <string>
 #include <vector>
 
-#include <sodium.h>
-
 #include <keylock/cert/asn1_writer.hpp>
 #include <keylock/cert/certificate.hpp>
 #include <keylock/cert/distinguished_name.hpp>
 #include <keylock/cert/oid_registry.hpp>
 #include <keylock/crypto/context.hpp>
-#include <keylock/utils/sodium_utils.hpp>
+#include <keylock/crypto/rng/randombytes.hpp>
 
 namespace keylock::cert {
 
     namespace detail {
 
         inline std::vector<uint8_t> make_random_serial() {
-            keylock::utils::ensure_sodium_init();
             std::vector<uint8_t> serial(16);
-            randombytes_buf(serial.data(), serial.size());
+            ::keylock::crypto::rng::randombytes_buf(serial.data(), serial.size());
             serial[0] &= 0x7FU; // ensure positive
             return serial;
         }

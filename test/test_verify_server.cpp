@@ -6,6 +6,7 @@
 #include <doctest/doctest.h>
 
 #include <chrono>
+#include <keylock/keylock.hpp>
 #include <keylock/cert/builder.hpp>
 #include <keylock/crypto/context.hpp>
 #include <keylock/verify/client.hpp>
