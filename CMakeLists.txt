@@ -13,7 +13,6 @@ set(PROJECT_VERSION "0.0.12")
 set(LIB_DEPS
     "echo|https://github.com/bresilla/echo.git|0.0.23"
     "datapod|https://github.com/robolibs/datapod.git|0.0.34"
-    "pkg::libsodium"
 )
 set(EXAMPLE_DEPS
     "pkg::rerun_sdk"
