@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.13] - 2026-01-18
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Remove libsodium from CMakeLists.txt
+
 ## [0.0.12] - 2026-01-17
 
 ### <!-- 3 -->📚 Documentation
