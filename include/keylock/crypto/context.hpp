@@ -95,6 +95,30 @@ namespace keylock::crypto {
 
         inline std::string dp_error_message(const dp::Error &error) { return std::string(error.message.c_str()); }
 
+        inline int compare_be_bytes(const std::vector<uint8_t> &a, const std::vector<uint8_t> &b) {
+            if (a.size() != b.size()) {
+                return a.size() < b.size() ? -1 : 1;
+            }
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i] < b[i]) {
+                    return -1;
+                }
+                if (a[i] > b[i]) {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+
+        inline bool is_zero_bytes(const std::vector<uint8_t> &x) {
+            for (uint8_t b : x) {
+                if (b != 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         inline std::vector<uint8_t> encode_rsa_public_key_blob_raw(const std::vector<uint8_t> &modulus,
                                                                    const std::vector<uint8_t> &public_exponent) {
             std::vector<uint8_t> out;
@@ -525,6 +549,51 @@ namespace keylock::crypto {
                 pair.algorithm = current_algorithm_;
                 pair.public_key = std::move(pub);
                 pair.private_key = std::move(sec);
+                return pair;
+            }
+            case Algorithm::ECDSA_P256_SHA256: {
+                std::vector<uint8_t> d(32);
+                const std::vector<uint8_t> n(sign_ecdsa_p256::field::order_n().begin(),
+                                             sign_ecdsa_p256::field::order_n().end());
+
+                do {
+                    rng::randombytes_buf(d.data(), d.size());
+                } while (detail::is_zero_bytes(d) || detail::compare_be_bytes(d, n) >= 0);
+
+                sign_ecdsa_p256::PrivateKey sk{dp::Vector<dp::u8>(d.begin(), d.end())};
+                auto pk = sign_ecdsa_p256::derive_public_key(sk);
+                if (pk.is_err()) {
+                    throw std::runtime_error("ECDSA P-256 key generation failed");
+                }
+
+                KeyPair pair;
+                pair.algorithm = current_algorithm_;
+                pair.private_key = encode_ecdsa_p256_private_key_blob(d);
+                pair.public_key = encode_ecdsa_p256_public_key_blob(
+                    std::vector<uint8_t>(pk.value().q.x.begin(), pk.value().q.x.end()),
+                    std::vector<uint8_t>(pk.value().q.y.begin(), pk.value().q.y.end()));
+                return pair;
+            }
+            case Algorithm::RSA_PKCS1v15_SHA256:
+            case Algorithm::RSA_PSS_SHA256:
+            case Algorithm::RSA_PKCS1v15_SHA384:
+            case Algorithm::RSA_PSS_SHA384:
+            case Algorithm::RSA_PKCS1v15_SHA512:
+            case Algorithm::RSA_PSS_SHA512: {
+                std::vector<uint8_t> modulus(256);
+                rng::randombytes_buf(modulus.data(), modulus.size());
+                modulus[0] |= 0x80;
+                modulus.back() |= 0x01;
+
+                const std::vector<uint8_t> e{0x01};
+                const std::vector<uint8_t> d{0x01};
+
+                echo::warn("generate_keypair: RSA currently uses identity exponent placeholder (e=d=1)");
+
+                KeyPair pair;
+                pair.algorithm = current_algorithm_;
+                pair.public_key = encode_rsa_public_key_blob(modulus, e);
+                pair.private_key = encode_rsa_private_key_blob(modulus, e, d);
                 return pair;
             }
             default:
