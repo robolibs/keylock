@@ -17,7 +17,7 @@
 
 namespace keylock::crypto {
 
-    enum class KeyFormat { RAW, PKCS8 };
+    enum class KeyFormat { RAW };
 
     class Common {
       public:
