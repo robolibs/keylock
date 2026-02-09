@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased]
+
+### <!-- 0 -->⛰️  Features
+
+- Add RSA signature algorithms (PKCS#1 v1.5 and PSS) with SHA-256/384/512 support
+- Add ECDSA P-256 signing/verification with deterministic RFC6979 nonces
+- Extend `Context` signature API to support RSA/ECDSA algorithms and key blob helpers
+- Add strict ECDSA DER signature codec helpers for raw<->DER interoperability
+- Extend keypair generation with ECDSA P-256 support and RSA placeholder generation flow
+
+### <!-- 6 -->🧪 Testing
+
+- Add RSA math, PKCS#1 v1.5, PSS, and context integration test coverage
+- Add ECDSA P-256 field/point/signature/context integration test coverage
+- Add signature vector tests and fuzz-style DER decoder robustness tests
+
+### <!-- 3 -->📚 Documentation
+
+- Update README to describe RSA/ECDSA support and current limitations
+- Update acknowledgments with standards and test-vector references
+
 ## [0.0.16] - 2026-02-09
 
 ### <!-- 0 -->⛰️  Features
