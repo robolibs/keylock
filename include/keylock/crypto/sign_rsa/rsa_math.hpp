@@ -118,7 +118,6 @@ namespace keylock::crypto::sign_rsa::math {
 
         inline dp::Result<dp::Vector<dp::u32>> sub_words(const dp::Vector<dp::u32> &a, const dp::Vector<dp::u32> &b) {
             if (compare_words(a, b) < 0) {
-                echo::error("rsa_math::sub_words underflow");
                 return dp::Result<dp::Vector<dp::u32>>::err(dp::Error::invalid_argument("subtraction underflow"));
             }
 
