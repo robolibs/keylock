@@ -340,6 +340,24 @@ namespace keylock::crypto::sign_rsa::keygen {
             key.public_exponent = detail::from_u32(public_exponent);
             key.private_exponent = std::move(d_res.value());
 
+            key.prime_p = p;
+            key.prime_q = q;
+
+            auto dp_res = math::mod_be(key.private_exponent, p1.value());
+            auto dq_res = math::mod_be(key.private_exponent, q1.value());
+            auto p_minus_2 = math::sub_be(p, Bytes{2});
+            if (dp_res.is_err() || dq_res.is_err() || p_minus_2.is_err()) {
+                continue;
+            }
+            auto qinv_res = math::mod_exp_be(q, p_minus_2.value(), p);
+            if (qinv_res.is_err()) {
+                continue;
+            }
+
+            key.crt_dp = dp_res.value();
+            key.crt_dq = dq_res.value();
+            key.crt_qinv = qinv_res.value();
+
             auto ok = validate_private_key(key);
             if (ok.is_ok()) {
                 return KeygenResult::ok(std::move(key));
