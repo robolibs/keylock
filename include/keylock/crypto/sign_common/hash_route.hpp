@@ -37,8 +37,30 @@ namespace keylock::crypto::sign_common {
             return HashResult::ok(std::move(digest));
         }
         case SignatureHashAlgorithm::SHA384: {
-            echo::warn("hash_message: SHA384 is not implemented yet in keylock hash primitives");
-            return HashResult::err(dp::Error::invalid_argument("sha384 not implemented"));
+            hash::sha512::Context ctx;
+            hash::sha512::init(&ctx);
+
+            // SHA-384 IV (FIPS 180-4)
+            ctx.hash[0] = 0xcbbb9d5dc1059ed8ULL;
+            ctx.hash[1] = 0x629a292a367cd507ULL;
+            ctx.hash[2] = 0x9159015a3070dd17ULL;
+            ctx.hash[3] = 0x152fecd8f70e5939ULL;
+            ctx.hash[4] = 0x67332667ffc00b31ULL;
+            ctx.hash[5] = 0x8eb44a8768581511ULL;
+            ctx.hash[6] = 0xdb0c2e0d64f98fa7ULL;
+            ctx.hash[7] = 0x47b5481dbefa4fa4ULL;
+
+            hash::sha512::update(&ctx, message.data(), message.size());
+
+            Bytes full(64);
+            hash::sha512::final(&ctx, full.data());
+
+            digest.resize(48);
+            for (dp::usize i = 0; i < 48; ++i) {
+                digest[i] = full[i];
+            }
+
+            return HashResult::ok(std::move(digest));
         }
         case SignatureHashAlgorithm::SHA512: {
             digest.resize(64);

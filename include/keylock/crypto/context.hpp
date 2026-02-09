@@ -124,6 +124,10 @@ namespace keylock::crypto {
                 error = "RSA key blob missing modulus length";
                 return false;
             }
+            if (n_len == 0) {
+                error = "RSA key blob has empty modulus";
+                return false;
+            }
             if (offset + n_len > blob.size()) {
                 error = "RSA key blob modulus truncated";
                 return false;
@@ -134,6 +138,10 @@ namespace keylock::crypto {
 
             if (!read_u32_be(blob, offset, e_len)) {
                 error = "RSA key blob missing exponent length";
+                return false;
+            }
+            if (e_len == 0) {
+                error = "RSA key blob has empty exponent";
                 return false;
             }
             if (offset + e_len > blob.size()) {
@@ -162,6 +170,10 @@ namespace keylock::crypto {
                 error = "RSA private key blob missing modulus length";
                 return false;
             }
+            if (n_len == 0) {
+                error = "RSA private key blob has empty modulus";
+                return false;
+            }
             if (offset + n_len > blob.size()) {
                 error = "RSA private key blob modulus truncated";
                 return false;
@@ -174,6 +186,10 @@ namespace keylock::crypto {
                 error = "RSA private key blob missing exponent length";
                 return false;
             }
+            if (e_len == 0) {
+                error = "RSA private key blob has empty exponent";
+                return false;
+            }
             if (offset + e_len > blob.size()) {
                 error = "RSA private key blob exponent truncated";
                 return false;
@@ -184,6 +200,10 @@ namespace keylock::crypto {
 
             if (!read_u32_be(blob, offset, d_len)) {
                 error = "RSA private key blob missing private exponent length";
+                return false;
+            }
+            if (d_len == 0) {
+                error = "RSA private key blob has empty private exponent";
                 return false;
             }
             if (offset + d_len > blob.size()) {
@@ -216,6 +236,8 @@ namespace keylock::crypto {
             Ed25519,
             RSA_PKCS1v15_SHA256,
             RSA_PSS_SHA256,
+            RSA_PKCS1v15_SHA384,
+            RSA_PSS_SHA384,
             ECDSA_P256_SHA256
         };
 
@@ -345,7 +367,9 @@ namespace keylock::crypto {
                 return {true, signature, ""};
             }
             case Algorithm::RSA_PKCS1v15_SHA256:
-            case Algorithm::RSA_PSS_SHA256: {
+            case Algorithm::RSA_PSS_SHA256:
+            case Algorithm::RSA_PKCS1v15_SHA384:
+            case Algorithm::RSA_PSS_SHA384: {
                 sign_rsa::RsaPrivateKey rsa_key;
                 std::string decode_error;
                 if (!detail::decode_rsa_private_key_blob_raw(private_key, rsa_key, decode_error)) {
@@ -353,15 +377,22 @@ namespace keylock::crypto {
                 }
 
                 const dp::Vector<dp::u8> msg(data.begin(), data.end());
-                if (current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256) {
-                    auto sig = sign_rsa::pkcs1v15::sign(msg, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                if (current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256 ||
+                    current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA384) {
+                    const auto hash_alg = current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256
+                                              ? sign_common::SignatureHashAlgorithm::SHA256
+                                              : sign_common::SignatureHashAlgorithm::SHA384;
+                    auto sig = sign_rsa::pkcs1v15::sign(msg, rsa_key, hash_alg);
                     if (sig.is_err()) {
                         return {false, {}, detail::dp_error_message(sig.error())};
                     }
                     return {true, std::vector<uint8_t>(sig.value().begin(), sig.value().end()), ""};
                 }
 
-                auto sig = sign_rsa::pss::sign(msg, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                const auto hash_alg = current_algorithm_ == Algorithm::RSA_PSS_SHA256
+                                          ? sign_common::SignatureHashAlgorithm::SHA256
+                                          : sign_common::SignatureHashAlgorithm::SHA384;
+                auto sig = sign_rsa::pss::sign(msg, rsa_key, hash_alg);
                 if (sig.is_err()) {
                     return {false, {}, detail::dp_error_message(sig.error())};
                 }
@@ -400,7 +431,9 @@ namespace keylock::crypto {
                 return {rc == 0, {}, rc == 0 ? "" : "Ed25519 signature verification failed"};
             }
             case Algorithm::RSA_PKCS1v15_SHA256:
-            case Algorithm::RSA_PSS_SHA256: {
+            case Algorithm::RSA_PSS_SHA256:
+            case Algorithm::RSA_PKCS1v15_SHA384:
+            case Algorithm::RSA_PSS_SHA384: {
                 sign_rsa::RsaPublicKey rsa_key;
                 std::string decode_error;
                 if (!detail::decode_rsa_public_key_blob_raw(public_key, rsa_key, decode_error)) {
@@ -410,16 +443,22 @@ namespace keylock::crypto {
                 const dp::Vector<dp::u8> msg(data.begin(), data.end());
                 const dp::Vector<dp::u8> sig(signature.begin(), signature.end());
 
-                if (current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256) {
-                    auto ok =
-                        sign_rsa::pkcs1v15::verify(msg, sig, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                if (current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256 ||
+                    current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA384) {
+                    const auto hash_alg = current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256
+                                              ? sign_common::SignatureHashAlgorithm::SHA256
+                                              : sign_common::SignatureHashAlgorithm::SHA384;
+                    auto ok = sign_rsa::pkcs1v15::verify(msg, sig, rsa_key, hash_alg);
                     if (ok.is_err()) {
                         return {false, {}, detail::dp_error_message(ok.error())};
                     }
                     return {ok.value(), {}, ok.value() ? "" : "RSA PKCS1v15 signature verification failed"};
                 }
 
-                auto ok = sign_rsa::pss::verify(msg, sig, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                const auto hash_alg = current_algorithm_ == Algorithm::RSA_PSS_SHA256
+                                          ? sign_common::SignatureHashAlgorithm::SHA256
+                                          : sign_common::SignatureHashAlgorithm::SHA384;
+                auto ok = sign_rsa::pss::verify(msg, sig, rsa_key, hash_alg);
                 if (ok.is_err()) {
                     return {false, {}, detail::dp_error_message(ok.error())};
                 }
@@ -540,6 +579,10 @@ namespace keylock::crypto {
                 return "RSA-PKCS1v1.5-SHA256";
             case Algorithm::RSA_PSS_SHA256:
                 return "RSA-PSS-SHA256";
+            case Algorithm::RSA_PKCS1v15_SHA384:
+                return "RSA-PKCS1v1.5-SHA384";
+            case Algorithm::RSA_PSS_SHA384:
+                return "RSA-PSS-SHA384";
             case Algorithm::ECDSA_P256_SHA256:
                 return "ECDSA-P256-SHA256";
             }
@@ -612,6 +655,8 @@ namespace keylock::crypto {
                 return ed25519::SECRETKEYBYTES;
             case Algorithm::RSA_PKCS1v15_SHA256:
             case Algorithm::RSA_PSS_SHA256:
+            case Algorithm::RSA_PKCS1v15_SHA384:
+            case Algorithm::RSA_PSS_SHA384:
                 break;
             case Algorithm::ECDSA_P256_SHA256:
                 if (key_type == KeyType::PUBLIC)
@@ -634,7 +679,8 @@ namespace keylock::crypto {
         bool is_asymmetric_algorithm(Algorithm algo) const { return algo == Algorithm::X25519_Box; }
         bool is_signature_algorithm(Algorithm algo) const {
             return algo == Algorithm::Ed25519 || algo == Algorithm::RSA_PKCS1v15_SHA256 ||
-                   algo == Algorithm::RSA_PSS_SHA256 || algo == Algorithm::ECDSA_P256_SHA256;
+                   algo == Algorithm::RSA_PSS_SHA256 || algo == Algorithm::RSA_PKCS1v15_SHA384 ||
+                   algo == Algorithm::RSA_PSS_SHA384 || algo == Algorithm::ECDSA_P256_SHA256;
         }
 
         CryptoResult aead_xchacha_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key,
