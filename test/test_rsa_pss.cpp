@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "keylock/crypto/sign_rsa/rsa_keygen.hpp"
 #include "keylock/crypto/sign_rsa/rsa_pss.hpp"
 
 TEST_SUITE("RSA PSS") {
@@ -29,15 +30,10 @@ TEST_SUITE("RSA PSS") {
         CHECK_FALSE(bad.value());
     }
 
-    TEST_CASE("PSS sign and verify round-trip with identity exponent") {
-        // Phase-2 plumbing test key: e=d=1 keeps RSASP1/RSAVP1 as identity map.
-        // This validates PSS encoding and verify flow before full RSA keygen lands.
-        RsaPrivateKey sk;
-        sk.modulus.resize(128, 0xff);
-        sk.modulus[0] = 0x80;
-        sk.modulus.back() = 0x03;
-        sk.public_exponent = Bytes{0x01};
-        sk.private_exponent = Bytes{0x01};
+    TEST_CASE("PSS sign and verify round-trip with generated key") {
+        auto generated = keylock::crypto::sign_rsa::keygen::generate_keypair(1024, 65537);
+        REQUIRE(generated.is_ok());
+        RsaPrivateKey sk = generated.value();
 
         RsaPublicKey pk{sk.modulus, sk.public_exponent};
 

@@ -24,6 +24,7 @@
 #include "keylock/crypto/sign_ecdsa_p256/ecdsa_der.hpp"
 #include "keylock/crypto/sign_ecdsa_p256/ecdsa_p256.hpp"
 #include "keylock/crypto/sign_ed25519/ed25519.hpp"
+#include "keylock/crypto/sign_rsa/rsa_keygen.hpp"
 #include "keylock/crypto/sign_rsa/rsa_keys.hpp"
 #include "keylock/crypto/sign_rsa/rsa_pkcs1v15.hpp"
 #include "keylock/crypto/sign_rsa/rsa_pss.hpp"
@@ -580,20 +581,37 @@ namespace keylock::crypto {
             case Algorithm::RSA_PSS_SHA384:
             case Algorithm::RSA_PKCS1v15_SHA512:
             case Algorithm::RSA_PSS_SHA512: {
-                std::vector<uint8_t> modulus(256);
-                rng::randombytes_buf(modulus.data(), modulus.size());
-                modulus[0] |= 0x80;
-                modulus.back() |= 0x01;
+                auto generated = sign_rsa::keygen::generate_keypair(1536, 65537);
+                if (generated.is_err()) {
+                    throw std::runtime_error("RSA key generation failed");
+                }
 
-                const std::vector<uint8_t> e{0x01};
-                const std::vector<uint8_t> d{0x01};
+                const auto &rsa_key = generated.value();
+                if (rsa_key.public_exponent != dp::Vector<dp::u8>{0x01, 0x00, 0x01}) {
+                    throw std::runtime_error("RSA key generation produced unexpected public exponent");
+                }
+                if (rsa_key.private_exponent == rsa_key.public_exponent) {
+                    throw std::runtime_error("RSA key generation produced invalid private exponent");
+                }
 
-                echo::warn("generate_keypair: RSA currently uses identity exponent placeholder (e=d=1)");
+                const std::vector<uint8_t> n_vec(rsa_key.modulus.begin(), rsa_key.modulus.end());
+                const std::vector<uint8_t> e_vec(rsa_key.public_exponent.begin(), rsa_key.public_exponent.end());
+                const std::vector<uint8_t> d_vec(rsa_key.private_exponent.begin(), rsa_key.private_exponent.end());
 
                 KeyPair pair;
                 pair.algorithm = current_algorithm_;
-                pair.public_key = encode_rsa_public_key_blob(modulus, e);
-                pair.private_key = encode_rsa_private_key_blob(modulus, e, d);
+                pair.public_key = encode_rsa_public_key_blob(n_vec, e_vec);
+                pair.private_key = encode_rsa_private_key_blob(n_vec, e_vec, d_vec);
+
+                const std::vector<uint8_t> self_test_msg{'k', 'e', 'y', 'g', 'e', 'n'};
+                auto sig = sign(self_test_msg, pair.private_key);
+                if (!sig.success) {
+                    throw std::runtime_error("RSA key generation self-test sign failed");
+                }
+                auto ok = verify(self_test_msg, sig.data, pair.public_key);
+                if (!ok.success) {
+                    throw std::runtime_error("RSA key generation self-test verify failed");
+                }
                 return pair;
             }
             default:

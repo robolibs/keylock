@@ -43,7 +43,7 @@ namespace keylock::crypto::sign_rsa {
         }
 
         if (key.public_exponent.size() == 1 && key.public_exponent[0] < 3) {
-            echo::warn("rsa public exponent is non-standard (<3)");
+            return ValidationResult::err(dp::Error::invalid_argument("rsa public exponent must be >= 3"));
         }
 
         if (key.modulus.back() % 2U == 0) {
