@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-#include "keylock/cert/files.hpp"
 #include "keylock/crypto/common.hpp"
 #include "keylock/hash/blake2b/blake2b.hpp"
 #include "keylock/hash/context.hpp"
@@ -27,6 +26,41 @@
 namespace keylock::crypto {
 
     namespace detail {
+
+        struct FileLoadResult {
+            bool success;
+            std::vector<uint8_t> data;
+            std::string error_message;
+        };
+
+        inline bool write_binary(const std::vector<uint8_t> &data, const std::string &path) {
+            try {
+                std::ofstream file(path, std::ios::binary);
+                if (!file) {
+                    return false;
+                }
+                file.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
+                return file.good();
+            } catch (...) {
+                return false;
+            }
+        }
+
+        inline FileLoadResult read_binary(const std::string &path) {
+            try {
+                std::ifstream file(path, std::ios::binary);
+                if (!file) {
+                    return {false, {}, "Cannot open file"};
+                }
+                std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                if (data.empty()) {
+                    return {false, {}, "File empty"};
+                }
+                return {true, std::move(data), ""};
+            } catch (const std::exception &e) {
+                return {false, {}, e.what()};
+            }
+        }
 
         inline std::vector<uint8_t> normalize_key(const std::vector<uint8_t> &key, size_t required) {
             if (key.size() == required) {
@@ -563,91 +597,20 @@ namespace keylock::crypto {
 
 } // namespace keylock::crypto
 
-// Include dependencies for save/load functions after Context is defined
-#include "keylock/cert/asn1_utils.hpp"
-#include "keylock/cert/asn1_writer.hpp"
-#include "keylock/cert/pem.hpp"
-
 namespace keylock::crypto {
 
     inline bool Context::save_key_to_file(const std::vector<uint8_t> &key, const std::string &filename,
                                           KeyType key_type, KeyFormat format) {
-        if (format == KeyFormat::PKCS8 && current_algorithm_ == Algorithm::Ed25519 && key_type == KeyType::PRIVATE) {
-            if (key.size() != ed25519::SECRETKEYBYTES) {
-                return false;
-            }
-            std::vector<uint8_t> seed(32);
-            std::copy(key.begin(), key.begin() + 32, seed.begin());
+        (void)key_type;
+        (void)format;
 
-            using namespace ::keylock::cert;
-            using namespace ::keylock::cert::der;
-            std::vector<std::vector<uint8_t>> pki_fields;
-            pki_fields.push_back(encode_integer(0));
-            std::vector<std::vector<uint8_t>> alg_fields;
-            alg_fields.push_back(encode_oid(Oid{{1, 3, 101, 112}}));
-            pki_fields.push_back(encode_sequence(concat(alg_fields)));
-            pki_fields.push_back(encode_octet_string(ByteSpan(seed.data(), seed.size())));
-            auto pki_der = encode_sequence(concat(pki_fields));
-
-            auto pem = cert::pem_encode(ByteSpan(pki_der.data(), pki_der.size()), "PRIVATE KEY");
-            std::vector<uint8_t> pem_bytes(pem.begin(), pem.end());
-            return io::write_binary(pem_bytes, filename);
-        }
-
-        return io::write_binary(key, filename);
+        return detail::write_binary(key, filename);
     }
 
     inline Context::CryptoResult Context::load_key_from_file(const std::string &filename, KeyType key_type) {
-        auto load = io::read_binary(filename);
+        auto load = detail::read_binary(filename);
         if (!load.success) {
             return {false, {}, load.error_message};
-        }
-
-        const std::string_view contents(reinterpret_cast<const char *>(load.data.data()), load.data.size());
-        if (contents.find("-----BEGIN") != std::string_view::npos && current_algorithm_ == Algorithm::Ed25519 &&
-            key_type == KeyType::PRIVATE) {
-            auto pem = ::keylock::cert::pem_decode(contents, "PRIVATE KEY");
-            if (!pem.success) {
-                return {false, {}, pem.error};
-            }
-            auto seq = ::keylock::cert::parse_sequence(
-                ::keylock::cert::ByteSpan(pem.block.data.data(), pem.block.data.size()));
-            if (!seq.success) {
-                return {false, {}, seq.error};
-            }
-            size_t offset = 0;
-            auto ver = ::keylock::cert::parse_integer(seq.value.subspan(offset));
-            if (!ver.success) {
-                return {false, {}, "Invalid PKCS#8 version"};
-            }
-            offset += ver.bytes_consumed;
-            auto alg_seq = ::keylock::cert::parse_sequence(seq.value.subspan(offset));
-            if (!alg_seq.success) {
-                return {false, {}, "Invalid AlgorithmIdentifier"};
-            }
-            auto oid = ::keylock::cert::parse_oid(alg_seq.value);
-            if (!oid.success || oid.value.nodes != std::vector<uint32_t>({1, 3, 101, 112})) {
-                return {false, {}, "Unsupported key algorithm in PKCS#8"};
-            }
-            offset += alg_seq.bytes_consumed;
-            auto pkey_oct = ::keylock::cert::parse_octet_string(seq.value.subspan(offset));
-            if (!pkey_oct.success) {
-                return {false, {}, "Missing privateKey in PKCS#8"};
-            }
-            std::vector<uint8_t> seed;
-            if (pkey_oct.value.size() == 32) {
-                seed.assign(pkey_oct.value.begin(), pkey_oct.value.end());
-            } else {
-                auto inner = ::keylock::cert::parse_octet_string(pkey_oct.value);
-                if (!inner.success || inner.value.size() != 32) {
-                    return {false, {}, "Unsupported Ed25519 PKCS#8 privateKey format"};
-                }
-                seed.assign(inner.value.begin(), inner.value.end());
-            }
-            std::vector<uint8_t> pub(ed25519::PUBLICKEYBYTES);
-            std::vector<uint8_t> sec(ed25519::SECRETKEYBYTES);
-            ed25519::seed_keypair(pub.data(), sec.data(), seed.data());
-            return {true, sec, ""};
         }
 
         if (auto expected = expected_key_size(key_type)) {
