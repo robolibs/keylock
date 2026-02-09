@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.16] - 2026-02-09
+
+### <!-- 0 -->⛰️  Features
+
+- Remove X.509/PKCS#8 certificate and key management
+
+### <!-- 3 -->📚 Documentation
+
+- Update README with crypto-only scope
+
 ## [0.0.15] - 2026-01-18
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
