@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.0.17] - 2026-02-09
+
+### <!-- 0 -->⛰️  Features
+
+- Extend keypair generation for ECDSA and RSA modes
+- Add RSA SHA512 signature modes in Context
+- Add strict ECDSA DER signature codec helpers
+- Add SHA384 RSA modes and signature input hardening
+- Implement ECDSA P-256 signing and context wiring
+- Add P-256 affine point operations
+- Add P-256 finite field arithmetic primitives
+- Wire RSA signature algorithms into Context
+- Add RSA-PSS encoding and verification flow
+- Add RSA key validation and PKCS1 v1.5 encoding
+- Add phase-1 RSA signature foundations
+
+### <!-- 3 -->📚 Documentation
+
+- Document RSA/ECDSA support and references
+
+### <!-- 6 -->🧪 Testing
+
+- Add signature vectors and fuzz-style DER decoder checks
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Clean up CMakeLists and remove deprecated documentation
+
+## [Unreleased]
+
+### <!-- 0 -->⛰️  Features
+
+- Add RSA signature algorithms (PKCS#1 v1.5 and PSS) with SHA-256/384/512 support
+- Add ECDSA P-256 signing/verification with deterministic RFC6979 nonces
+- Extend `Context` signature API to support RSA/ECDSA algorithms and key blob helpers
+- Add strict ECDSA DER signature codec helpers for raw<->DER interoperability
+- Extend keypair generation with ECDSA P-256 support and RSA placeholder generation flow
+
+### <!-- 6 -->🧪 Testing
+
+- Add RSA math, PKCS#1 v1.5, PSS, and context integration test coverage
+- Add ECDSA P-256 field/point/signature/context integration test coverage
+- Add signature vector tests and fuzz-style DER decoder robustness tests
+
+### <!-- 3 -->📚 Documentation
+
+- Update README to describe RSA/ECDSA support and current limitations
+- Update acknowledgments with standards and test-vector references
+
 ## [0.0.16] - 2026-02-09
 
 ### <!-- 0 -->⛰️  Features

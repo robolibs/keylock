@@ -12,8 +12,8 @@ hashing, KDFs, and RNG utilities with no OpenSSL dependency.
 Current scope:
 - Symmetric encryption: XChaCha20-Poly1305, ChaCha20-Poly1305 (IETF), AES-256-GCM, SecretBox
 - Asymmetric encryption: X25519 sealed boxes
-- Signatures: Ed25519
-- Hashing: SHA-256, SHA-512, BLAKE2b, plus HMAC
+- Signatures: Ed25519, RSA PKCS#1 v1.5 (SHA-256/384/512), RSA-PSS (SHA-256/384/512), ECDSA P-256 (SHA-256)
+- Hashing: SHA-256, SHA-384, SHA-512, BLAKE2b, plus HMAC
 - KDFs and key derivation helpers
 - Key I/O in RAW binary format
 
@@ -54,7 +54,7 @@ int main() {
     auto ciphertext = crypto.encrypt(message, key.data);
     auto plaintext = crypto.decrypt(ciphertext.data, key.data);
 
-    keylock::keylock signer(keylock::Algorithm::Ed25519);
+    keylock::keylock signer(keylock::Algorithm::RSA_PKCS1v15_SHA256);
     auto keys = signer.generate_keypair();
 
     auto sig = signer.sign(message, keys.private_key);
@@ -70,12 +70,18 @@ int main() {
 
 `PKCS8` is no longer part of `keylock` after PKI extraction.
 
+## Current limitations
+
+- RSA `generate_keypair()` currently emits an internal placeholder pair (`e=d=1`) intended for API/testing flow; production RSA key generation is still pending.
+- ECDSA P-256 signatures are represented as raw `r||s` (64 bytes) in sign/verify APIs; DER conversion is available via helper functions.
+
 ## Features
 
-- Modern crypto-only API (no legacy RSA/ECDSA surface)
+- Modern crypto-only API with Ed25519, RSA, and ECDSA signature modes
 - Result-based error handling (`{success, data, error_message}`)
 - Header-first C++20 interface with internal implementations
 - No OpenSSL dependency for core crypto operations
+- Strict ECDSA DER signature encode/decode helpers for interop
 
 ## Building
 

@@ -50,6 +50,36 @@ TEST_SUITE("Key Generation") {
         CHECK(keypair.private_key.size() == crypto_sign_ed25519_SECRETKEYBYTES);
     }
 
+    TEST_CASE("ECDSA P-256 key generation") {
+        keylock::keylock crypto(keylock::keylock::Algorithm::ECDSA_P256_SHA256);
+
+        auto keypair = crypto.generate_keypair();
+        CHECK(keypair.algorithm == keylock::keylock::Algorithm::ECDSA_P256_SHA256);
+        CHECK(keypair.public_key.size() == 64);
+        CHECK(keypair.private_key.size() == 32);
+
+        std::vector<uint8_t> msg{'e', 'c', 'd', 's', 'a'};
+        auto sig = crypto.sign(msg, keypair.private_key);
+        REQUIRE(sig.success);
+        auto ok = crypto.verify(msg, sig.data, keypair.public_key);
+        REQUIRE(ok.success);
+    }
+
+    TEST_CASE("RSA key generation placeholder supports sign/verify") {
+        keylock::keylock crypto(keylock::keylock::Algorithm::RSA_PKCS1v15_SHA256);
+
+        auto keypair = crypto.generate_keypair();
+        CHECK(keypair.algorithm == keylock::keylock::Algorithm::RSA_PKCS1v15_SHA256);
+        CHECK(!keypair.public_key.empty());
+        CHECK(!keypair.private_key.empty());
+
+        std::vector<uint8_t> msg{'r', 's', 'a'};
+        auto sig = crypto.sign(msg, keypair.private_key);
+        REQUIRE(sig.success);
+        auto ok = crypto.verify(msg, sig.data, keypair.public_key);
+        REQUIRE(ok.success);
+    }
+
     TEST_CASE("Key generation with symmetric algorithm should fail") {
         keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305);
 
