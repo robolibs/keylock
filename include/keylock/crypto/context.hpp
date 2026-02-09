@@ -21,6 +21,7 @@
 #include "keylock/crypto/box_seal_x25519/seal.hpp"
 #include "keylock/crypto/rng/randombytes.hpp"
 #include "keylock/crypto/secretbox_xsalsa20poly1305/secretbox.hpp"
+#include "keylock/crypto/sign_ecdsa_p256/ecdsa_p256.hpp"
 #include "keylock/crypto/sign_ed25519/ed25519.hpp"
 #include "keylock/crypto/sign_rsa/rsa_keys.hpp"
 #include "keylock/crypto/sign_rsa/rsa_pkcs1v15.hpp"
@@ -214,7 +215,8 @@ namespace keylock::crypto {
             X25519_Box,
             Ed25519,
             RSA_PKCS1v15_SHA256,
-            RSA_PSS_SHA256
+            RSA_PSS_SHA256,
+            ECDSA_P256_SHA256
         };
 
         enum class KeyType { PUBLIC, PRIVATE };
@@ -365,6 +367,18 @@ namespace keylock::crypto {
                 }
                 return {true, std::vector<uint8_t>(sig.value().begin(), sig.value().end()), ""};
             }
+            case Algorithm::ECDSA_P256_SHA256: {
+                if (private_key.size() != 32) {
+                    return {false, {}, "Invalid ECDSA P-256 private key size"};
+                }
+                sign_ecdsa_p256::PrivateKey sk{dp::Vector<dp::u8>(private_key.begin(), private_key.end())};
+                const dp::Vector<dp::u8> msg(data.begin(), data.end());
+                auto sig = sign_ecdsa_p256::sign_detached(msg, sk);
+                if (sig.is_err()) {
+                    return {false, {}, detail::dp_error_message(sig.error())};
+                }
+                return {true, std::vector<uint8_t>(sig.value().begin(), sig.value().end()), ""};
+            }
             default:
                 return {false, {}, "Unsupported signature algorithm"};
             }
@@ -410,6 +424,24 @@ namespace keylock::crypto {
                     return {false, {}, detail::dp_error_message(ok.error())};
                 }
                 return {ok.value(), {}, ok.value() ? "" : "RSA PSS signature verification failed"};
+            }
+            case Algorithm::ECDSA_P256_SHA256: {
+                if (public_key.size() != 64) {
+                    return {false, {}, "Invalid ECDSA P-256 public key size"};
+                }
+
+                sign_ecdsa_p256::PublicKey pk;
+                pk.q.infinity = false;
+                pk.q.x.assign(public_key.begin(), public_key.begin() + 32);
+                pk.q.y.assign(public_key.begin() + 32, public_key.end());
+
+                const dp::Vector<dp::u8> msg(data.begin(), data.end());
+                const dp::Vector<dp::u8> sig(signature.begin(), signature.end());
+                auto ok = sign_ecdsa_p256::verify_detached(msg, sig, pk);
+                if (ok.is_err()) {
+                    return {false, {}, detail::dp_error_message(ok.error())};
+                }
+                return {ok.value(), {}, ok.value() ? "" : "ECDSA P-256 signature verification failed"};
             }
             default:
                 return {false, {}, "Unsupported signature algorithm"};
@@ -508,6 +540,8 @@ namespace keylock::crypto {
                 return "RSA-PKCS1v1.5-SHA256";
             case Algorithm::RSA_PSS_SHA256:
                 return "RSA-PSS-SHA256";
+            case Algorithm::ECDSA_P256_SHA256:
+                return "ECDSA-P256-SHA256";
             }
             return "Unknown";
         }
@@ -521,6 +555,31 @@ namespace keylock::crypto {
                                                                 const std::vector<uint8_t> &public_exponent,
                                                                 const std::vector<uint8_t> &private_exponent) {
             return detail::encode_rsa_private_key_blob_raw(modulus, public_exponent, private_exponent);
+        }
+
+        static std::vector<uint8_t> encode_ecdsa_p256_public_key_blob(const std::vector<uint8_t> &x,
+                                                                      const std::vector<uint8_t> &y) {
+            std::vector<uint8_t> out;
+            out.reserve(64);
+            if (x.size() < 32) {
+                out.insert(out.end(), 32 - x.size(), 0x00);
+            }
+            out.insert(out.end(), x.size() > 32 ? x.end() - 32 : x.begin(), x.end());
+            if (y.size() < 32) {
+                out.insert(out.end(), 32 - y.size(), 0x00);
+            }
+            out.insert(out.end(), y.size() > 32 ? y.end() - 32 : y.begin(), y.end());
+            return out;
+        }
+
+        static std::vector<uint8_t> encode_ecdsa_p256_private_key_blob(const std::vector<uint8_t> &d) {
+            std::vector<uint8_t> out;
+            out.reserve(32);
+            if (d.size() < 32) {
+                out.insert(out.end(), 32 - d.size(), 0x00);
+            }
+            out.insert(out.end(), d.size() > 32 ? d.end() - 32 : d.begin(), d.end());
+            return out;
         }
 
         static bool is_aes_gcm_available() { return aead_aes256gcm::is_available() != 0; }
@@ -554,6 +613,10 @@ namespace keylock::crypto {
             case Algorithm::RSA_PKCS1v15_SHA256:
             case Algorithm::RSA_PSS_SHA256:
                 break;
+            case Algorithm::ECDSA_P256_SHA256:
+                if (key_type == KeyType::PUBLIC)
+                    return 64;
+                return 32;
             case Algorithm::XChaCha20_Poly1305:
             case Algorithm::ChaCha20_Poly1305:
             case Algorithm::AES256_GCM:
@@ -571,7 +634,7 @@ namespace keylock::crypto {
         bool is_asymmetric_algorithm(Algorithm algo) const { return algo == Algorithm::X25519_Box; }
         bool is_signature_algorithm(Algorithm algo) const {
             return algo == Algorithm::Ed25519 || algo == Algorithm::RSA_PKCS1v15_SHA256 ||
-                   algo == Algorithm::RSA_PSS_SHA256;
+                   algo == Algorithm::RSA_PSS_SHA256 || algo == Algorithm::ECDSA_P256_SHA256;
         }
 
         CryptoResult aead_xchacha_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key,
