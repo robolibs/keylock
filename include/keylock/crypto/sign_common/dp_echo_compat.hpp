@@ -54,6 +54,30 @@ namespace dp {
         E &error() { return error_state; }
         const E &error() const { return error_state; }
     };
+
+    template <typename E> struct Result<void, E> {
+        bool ok_state = false;
+        E error_state{};
+
+        static Result ok() {
+            Result r;
+            r.ok_state = true;
+            return r;
+        }
+
+        static Result err(E error) {
+            Result r;
+            r.ok_state = false;
+            r.error_state = std::move(error);
+            return r;
+        }
+
+        bool is_ok() const { return ok_state; }
+        bool is_err() const { return !ok_state; }
+
+        E &error() { return error_state; }
+        const E &error() const { return error_state; }
+    };
 } // namespace dp
 #endif
 
