@@ -21,6 +21,7 @@
 #include "keylock/crypto/box_seal_x25519/seal.hpp"
 #include "keylock/crypto/rng/randombytes.hpp"
 #include "keylock/crypto/secretbox_xsalsa20poly1305/secretbox.hpp"
+#include "keylock/crypto/sign_ecdsa_p256/ecdsa_der.hpp"
 #include "keylock/crypto/sign_ecdsa_p256/ecdsa_p256.hpp"
 #include "keylock/crypto/sign_ed25519/ed25519.hpp"
 #include "keylock/crypto/sign_rsa/rsa_keys.hpp"
@@ -623,6 +624,24 @@ namespace keylock::crypto {
             }
             out.insert(out.end(), d.size() > 32 ? d.end() - 32 : d.begin(), d.end());
             return out;
+        }
+
+        static CryptoResult encode_ecdsa_p256_signature_der(const std::vector<uint8_t> &raw_signature_64) {
+            auto der = sign_ecdsa_p256::der::encode_raw_to_der(
+                dp::Vector<dp::u8>(raw_signature_64.begin(), raw_signature_64.end()));
+            if (der.is_err()) {
+                return {false, {}, detail::dp_error_message(der.error())};
+            }
+            return {true, std::vector<uint8_t>(der.value().begin(), der.value().end()), ""};
+        }
+
+        static CryptoResult decode_ecdsa_p256_signature_der(const std::vector<uint8_t> &der_signature) {
+            auto raw =
+                sign_ecdsa_p256::der::decode_der_to_raw(dp::Vector<dp::u8>(der_signature.begin(), der_signature.end()));
+            if (raw.is_err()) {
+                return {false, {}, detail::dp_error_message(raw.error())};
+            }
+            return {true, std::vector<uint8_t>(raw.value().begin(), raw.value().end()), ""};
         }
 
         static bool is_aes_gcm_available() { return aead_aes256gcm::is_available() != 0; }
