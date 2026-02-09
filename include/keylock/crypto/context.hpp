@@ -22,6 +22,9 @@
 #include "keylock/crypto/rng/randombytes.hpp"
 #include "keylock/crypto/secretbox_xsalsa20poly1305/secretbox.hpp"
 #include "keylock/crypto/sign_ed25519/ed25519.hpp"
+#include "keylock/crypto/sign_rsa/rsa_keys.hpp"
+#include "keylock/crypto/sign_rsa/rsa_pkcs1v15.hpp"
+#include "keylock/crypto/sign_rsa/rsa_pss.hpp"
 
 namespace keylock::crypto {
 
@@ -71,6 +74,132 @@ namespace keylock::crypto {
             return normalized;
         }
 
+        inline void append_u32_be(std::vector<uint8_t> &out, uint32_t value) {
+            out.push_back(static_cast<uint8_t>((value >> 24) & 0xff));
+            out.push_back(static_cast<uint8_t>((value >> 16) & 0xff));
+            out.push_back(static_cast<uint8_t>((value >> 8) & 0xff));
+            out.push_back(static_cast<uint8_t>(value & 0xff));
+        }
+
+        inline bool read_u32_be(const std::vector<uint8_t> &in, size_t &offset, uint32_t &value) {
+            if (offset + 4 > in.size()) {
+                return false;
+            }
+            value = (static_cast<uint32_t>(in[offset]) << 24) | (static_cast<uint32_t>(in[offset + 1]) << 16) |
+                    (static_cast<uint32_t>(in[offset + 2]) << 8) | static_cast<uint32_t>(in[offset + 3]);
+            offset += 4;
+            return true;
+        }
+
+        inline std::string dp_error_message(const dp::Error &error) { return std::string(error.message.c_str()); }
+
+        inline std::vector<uint8_t> encode_rsa_public_key_blob_raw(const std::vector<uint8_t> &modulus,
+                                                                   const std::vector<uint8_t> &public_exponent) {
+            std::vector<uint8_t> out;
+            out.reserve(8 + modulus.size() + public_exponent.size());
+            append_u32_be(out, static_cast<uint32_t>(modulus.size()));
+            out.insert(out.end(), modulus.begin(), modulus.end());
+            append_u32_be(out, static_cast<uint32_t>(public_exponent.size()));
+            out.insert(out.end(), public_exponent.begin(), public_exponent.end());
+            return out;
+        }
+
+        inline std::vector<uint8_t> encode_rsa_private_key_blob_raw(const std::vector<uint8_t> &modulus,
+                                                                    const std::vector<uint8_t> &public_exponent,
+                                                                    const std::vector<uint8_t> &private_exponent) {
+            auto out = encode_rsa_public_key_blob_raw(modulus, public_exponent);
+            append_u32_be(out, static_cast<uint32_t>(private_exponent.size()));
+            out.insert(out.end(), private_exponent.begin(), private_exponent.end());
+            return out;
+        }
+
+        inline bool decode_rsa_public_key_blob_raw(const std::vector<uint8_t> &blob, sign_rsa::RsaPublicKey &out_key,
+                                                   std::string &error) {
+            size_t offset = 0;
+            uint32_t n_len = 0;
+            uint32_t e_len = 0;
+
+            if (!read_u32_be(blob, offset, n_len)) {
+                error = "RSA key blob missing modulus length";
+                return false;
+            }
+            if (offset + n_len > blob.size()) {
+                error = "RSA key blob modulus truncated";
+                return false;
+            }
+            out_key.modulus.assign(blob.begin() + static_cast<std::ptrdiff_t>(offset),
+                                   blob.begin() + static_cast<std::ptrdiff_t>(offset + n_len));
+            offset += n_len;
+
+            if (!read_u32_be(blob, offset, e_len)) {
+                error = "RSA key blob missing exponent length";
+                return false;
+            }
+            if (offset + e_len > blob.size()) {
+                error = "RSA key blob exponent truncated";
+                return false;
+            }
+            out_key.public_exponent.assign(blob.begin() + static_cast<std::ptrdiff_t>(offset),
+                                           blob.begin() + static_cast<std::ptrdiff_t>(offset + e_len));
+            offset += e_len;
+
+            if (offset != blob.size()) {
+                error = "RSA key blob has trailing bytes";
+                return false;
+            }
+            return true;
+        }
+
+        inline bool decode_rsa_private_key_blob_raw(const std::vector<uint8_t> &blob, sign_rsa::RsaPrivateKey &out_key,
+                                                    std::string &error) {
+            size_t offset = 0;
+            uint32_t n_len = 0;
+            uint32_t e_len = 0;
+            uint32_t d_len = 0;
+
+            if (!read_u32_be(blob, offset, n_len)) {
+                error = "RSA private key blob missing modulus length";
+                return false;
+            }
+            if (offset + n_len > blob.size()) {
+                error = "RSA private key blob modulus truncated";
+                return false;
+            }
+            out_key.modulus.assign(blob.begin() + static_cast<std::ptrdiff_t>(offset),
+                                   blob.begin() + static_cast<std::ptrdiff_t>(offset + n_len));
+            offset += n_len;
+
+            if (!read_u32_be(blob, offset, e_len)) {
+                error = "RSA private key blob missing exponent length";
+                return false;
+            }
+            if (offset + e_len > blob.size()) {
+                error = "RSA private key blob exponent truncated";
+                return false;
+            }
+            out_key.public_exponent.assign(blob.begin() + static_cast<std::ptrdiff_t>(offset),
+                                           blob.begin() + static_cast<std::ptrdiff_t>(offset + e_len));
+            offset += e_len;
+
+            if (!read_u32_be(blob, offset, d_len)) {
+                error = "RSA private key blob missing private exponent length";
+                return false;
+            }
+            if (offset + d_len > blob.size()) {
+                error = "RSA private key blob private exponent truncated";
+                return false;
+            }
+            out_key.private_exponent.assign(blob.begin() + static_cast<std::ptrdiff_t>(offset),
+                                            blob.begin() + static_cast<std::ptrdiff_t>(offset + d_len));
+            offset += d_len;
+
+            if (offset != blob.size()) {
+                error = "RSA private key blob has trailing bytes";
+                return false;
+            }
+            return true;
+        }
+
     } // namespace detail
 
     class Context {
@@ -83,7 +212,9 @@ namespace keylock::crypto {
             AES256_GCM,
             SecretBox_XSalsa20,
             X25519_Box,
-            Ed25519
+            Ed25519,
+            RSA_PKCS1v15_SHA256,
+            RSA_PSS_SHA256
         };
 
         enum class KeyType { PUBLIC, PRIVATE };
@@ -195,18 +326,48 @@ namespace keylock::crypto {
                 return {false, {}, "Current algorithm does not support signing"};
             }
 
-            if (private_key.size() != ed25519::SECRETKEYBYTES) {
-                return {false, {}, "Invalid private key size"};
-            }
+            switch (current_algorithm_) {
+            case Algorithm::Ed25519: {
+                if (private_key.size() != ed25519::SECRETKEYBYTES) {
+                    return {false, {}, "Invalid private key size"};
+                }
 
-            std::vector<uint8_t> signature(ed25519::BYTES);
-            unsigned long long sig_len = 0;
-            if (ed25519::sign_detached(signature.data(), &sig_len, data.data(), data.size(), private_key.data()) != 0) {
-                return {false, {}, "Ed25519 signing failed"};
-            }
+                std::vector<uint8_t> signature(ed25519::BYTES);
+                unsigned long long sig_len = 0;
+                if (ed25519::sign_detached(signature.data(), &sig_len, data.data(), data.size(), private_key.data()) !=
+                    0) {
+                    return {false, {}, "Ed25519 signing failed"};
+                }
 
-            signature.resize(sig_len);
-            return {true, signature, ""};
+                signature.resize(sig_len);
+                return {true, signature, ""};
+            }
+            case Algorithm::RSA_PKCS1v15_SHA256:
+            case Algorithm::RSA_PSS_SHA256: {
+                sign_rsa::RsaPrivateKey rsa_key;
+                std::string decode_error;
+                if (!detail::decode_rsa_private_key_blob_raw(private_key, rsa_key, decode_error)) {
+                    return {false, {}, decode_error};
+                }
+
+                const dp::Vector<dp::u8> msg(data.begin(), data.end());
+                if (current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256) {
+                    auto sig = sign_rsa::pkcs1v15::sign(msg, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                    if (sig.is_err()) {
+                        return {false, {}, detail::dp_error_message(sig.error())};
+                    }
+                    return {true, std::vector<uint8_t>(sig.value().begin(), sig.value().end()), ""};
+                }
+
+                auto sig = sign_rsa::pss::sign(msg, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                if (sig.is_err()) {
+                    return {false, {}, detail::dp_error_message(sig.error())};
+                }
+                return {true, std::vector<uint8_t>(sig.value().begin(), sig.value().end()), ""};
+            }
+            default:
+                return {false, {}, "Unsupported signature algorithm"};
+            }
         }
 
         CryptoResult verify(const std::vector<uint8_t> &data, const std::vector<uint8_t> &signature,
@@ -215,12 +376,44 @@ namespace keylock::crypto {
                 return {false, {}, "Current algorithm does not support verification"};
             }
 
-            if (public_key.size() != ed25519::PUBLICKEYBYTES) {
-                return {false, {}, "Invalid public key size"};
-            }
+            switch (current_algorithm_) {
+            case Algorithm::Ed25519: {
+                if (public_key.size() != ed25519::PUBLICKEYBYTES) {
+                    return {false, {}, "Invalid public key size"};
+                }
 
-            int rc = ed25519::verify_detached(signature.data(), data.data(), data.size(), public_key.data());
-            return {rc == 0, {}, rc == 0 ? "" : "Ed25519 signature verification failed"};
+                int rc = ed25519::verify_detached(signature.data(), data.data(), data.size(), public_key.data());
+                return {rc == 0, {}, rc == 0 ? "" : "Ed25519 signature verification failed"};
+            }
+            case Algorithm::RSA_PKCS1v15_SHA256:
+            case Algorithm::RSA_PSS_SHA256: {
+                sign_rsa::RsaPublicKey rsa_key;
+                std::string decode_error;
+                if (!detail::decode_rsa_public_key_blob_raw(public_key, rsa_key, decode_error)) {
+                    return {false, {}, decode_error};
+                }
+
+                const dp::Vector<dp::u8> msg(data.begin(), data.end());
+                const dp::Vector<dp::u8> sig(signature.begin(), signature.end());
+
+                if (current_algorithm_ == Algorithm::RSA_PKCS1v15_SHA256) {
+                    auto ok =
+                        sign_rsa::pkcs1v15::verify(msg, sig, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                    if (ok.is_err()) {
+                        return {false, {}, detail::dp_error_message(ok.error())};
+                    }
+                    return {ok.value(), {}, ok.value() ? "" : "RSA PKCS1v15 signature verification failed"};
+                }
+
+                auto ok = sign_rsa::pss::verify(msg, sig, rsa_key, sign_common::SignatureHashAlgorithm::SHA256);
+                if (ok.is_err()) {
+                    return {false, {}, detail::dp_error_message(ok.error())};
+                }
+                return {ok.value(), {}, ok.value() ? "" : "RSA PSS signature verification failed"};
+            }
+            default:
+                return {false, {}, "Unsupported signature algorithm"};
+            }
         }
 
         KeyPair generate_keypair() {
@@ -311,8 +504,23 @@ namespace keylock::crypto {
                 return "X25519-Box";
             case Algorithm::Ed25519:
                 return "Ed25519";
+            case Algorithm::RSA_PKCS1v15_SHA256:
+                return "RSA-PKCS1v1.5-SHA256";
+            case Algorithm::RSA_PSS_SHA256:
+                return "RSA-PSS-SHA256";
             }
             return "Unknown";
+        }
+
+        static std::vector<uint8_t> encode_rsa_public_key_blob(const std::vector<uint8_t> &modulus,
+                                                               const std::vector<uint8_t> &public_exponent) {
+            return detail::encode_rsa_public_key_blob_raw(modulus, public_exponent);
+        }
+
+        static std::vector<uint8_t> encode_rsa_private_key_blob(const std::vector<uint8_t> &modulus,
+                                                                const std::vector<uint8_t> &public_exponent,
+                                                                const std::vector<uint8_t> &private_exponent) {
+            return detail::encode_rsa_private_key_blob_raw(modulus, public_exponent, private_exponent);
         }
 
         static bool is_aes_gcm_available() { return aead_aes256gcm::is_available() != 0; }
@@ -343,6 +551,9 @@ namespace keylock::crypto {
                 if (key_type == KeyType::PUBLIC)
                     return ed25519::PUBLICKEYBYTES;
                 return ed25519::SECRETKEYBYTES;
+            case Algorithm::RSA_PKCS1v15_SHA256:
+            case Algorithm::RSA_PSS_SHA256:
+                break;
             case Algorithm::XChaCha20_Poly1305:
             case Algorithm::ChaCha20_Poly1305:
             case Algorithm::AES256_GCM:
@@ -358,7 +569,10 @@ namespace keylock::crypto {
         }
 
         bool is_asymmetric_algorithm(Algorithm algo) const { return algo == Algorithm::X25519_Box; }
-        bool is_signature_algorithm(Algorithm algo) const { return algo == Algorithm::Ed25519; }
+        bool is_signature_algorithm(Algorithm algo) const {
+            return algo == Algorithm::Ed25519 || algo == Algorithm::RSA_PKCS1v15_SHA256 ||
+                   algo == Algorithm::RSA_PSS_SHA256;
+        }
 
         CryptoResult aead_xchacha_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key,
                                           const std::vector<uint8_t> &aad) {
