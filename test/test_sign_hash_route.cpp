@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_common/hash_route.hpp"
+#include "keylock/crypto/signature/common/hash_route.hpp"
 
 TEST_SUITE("Signature Hash Routing") {
     using keylock::crypto::sign_common::SignatureHashAlgorithm;

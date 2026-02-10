@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_rsa/rsa_core.hpp"
-#include "keylock/crypto/sign_rsa/rsa_keygen.hpp"
+#include "keylock/crypto/rsa/rsa_core.hpp"
+#include "keylock/crypto/rsa/rsa_keygen.hpp"
 
 TEST_SUITE("RSA CRT") {
     TEST_CASE("CRT private op matches basic private op") {

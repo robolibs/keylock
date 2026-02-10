@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_rsa/rsa_keygen.hpp"
-#include "keylock/crypto/sign_rsa/rsa_pkcs1.hpp"
+#include "keylock/crypto/rsa/rsa_keygen.hpp"
+#include "keylock/crypto/rsa/rsa_pkcs1.hpp"
 #include <keylock/keylock.hpp>
 
 TEST_SUITE("RSA PKCS1 Key Formats") {

@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_rsa/rsa_keygen.hpp"
-#include "keylock/crypto/sign_rsa/rsa_pss.hpp"
+#include "keylock/crypto/rsa/rsa_keygen.hpp"
+#include "keylock/crypto/rsa/rsa_pss.hpp"
 
 TEST_SUITE("RSA PSS") {
     using keylock::crypto::sign_common::SignatureHashAlgorithm;

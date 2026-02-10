@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_rsa/rsa_pkcs1v15.hpp"
+#include "keylock/crypto/rsa/rsa_pkcs1v15.hpp"
 
 TEST_SUITE("RSA PKCS1 v1.5") {
     using keylock::crypto::sign_common::SignatureHashAlgorithm;

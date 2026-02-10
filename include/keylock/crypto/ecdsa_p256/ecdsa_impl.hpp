@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "keylock/crypto/sign_common/hash_route.hpp"
-#include "keylock/crypto/sign_ecdsa_p256/p256_point.hpp"
-#include "keylock/crypto/sign_ecdsa_p256/rfc6979.hpp"
+#include "keylock/crypto/ecdsa_p256/p256_point.hpp"
+#include "keylock/crypto/ecdsa_p256/rfc6979.hpp"
+#include "keylock/crypto/signature/common/hash_route.hpp"
 
 namespace keylock::crypto::sign_ecdsa_p256 {
 

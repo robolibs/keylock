@@ -1,7 +1,7 @@
 #pragma once
 
-#include "keylock/crypto/sign_rsa/rsa_keys.hpp"
-#include "keylock/crypto/sign_rsa/rsa_math.hpp"
+#include "keylock/crypto/rsa/rsa_keys.hpp"
+#include "keylock/crypto/rsa/rsa_math.hpp"
 
 namespace keylock::crypto::sign_rsa::core {
 

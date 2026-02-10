@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "keylock/crypto/sign_rsa/rsa_keys.hpp"
+#include "keylock/crypto/rsa/rsa_keys.hpp"
 
 namespace keylock::crypto::sign_rsa::pkcs1 {
 

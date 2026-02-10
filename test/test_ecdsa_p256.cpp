@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_ecdsa_p256/ecdsa_p256.hpp"
+#include "keylock/crypto/ecdsa_p256/ecdsa_impl.hpp"
 
 TEST_SUITE("ECDSA P256") {
     using keylock::crypto::sign_ecdsa_p256::Bytes;

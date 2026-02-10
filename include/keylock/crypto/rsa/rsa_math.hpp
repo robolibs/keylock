@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <utility>
 
-#include "keylock/crypto/sign_common/dp_echo_compat.hpp"
+#include "keylock/crypto/signature/common/dp_echo_compat.hpp"
 
 namespace keylock::crypto::sign_rsa::math {
 

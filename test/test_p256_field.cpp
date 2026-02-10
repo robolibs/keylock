@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_ecdsa_p256/p256_field.hpp"
+#include "keylock/crypto/ecdsa_p256/p256_field.hpp"
 
 TEST_SUITE("P256 Field") {
     using keylock::crypto::sign_ecdsa_p256::field::Bytes;

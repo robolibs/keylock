@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keylock/crypto/sign_ecdsa_p256/p256_field.hpp"
+#include "keylock/crypto/ecdsa_p256/p256_field.hpp"
 
 namespace keylock::crypto::sign_ecdsa_p256::point {
 

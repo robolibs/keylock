@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_ecdsa_p256/ecdsa_der.hpp"
-#include "keylock/crypto/sign_rsa/rsa_pkcs1v15.hpp"
+#include "keylock/crypto/ecdsa_p256/ecdsa_der.hpp"
+#include "keylock/crypto/rsa/rsa_pkcs1v15.hpp"
 
 TEST_SUITE("Signature Vectors") {
     using keylock::crypto::sign_common::SignatureHashAlgorithm;

@@ -11,9 +11,9 @@
 #include "keylock/crypto/aead_chacha20poly1305_ietf/aead.hpp"
 #include "keylock/crypto/aead_xchacha20poly1305_ietf/aead.hpp"
 #include "keylock/crypto/box_seal_x25519/seal.hpp"
+#include "keylock/crypto/ed25519/ed25519.hpp"
 #include "keylock/crypto/rng/randombytes.hpp"
 #include "keylock/crypto/secretbox_xsalsa20poly1305/secretbox.hpp"
-#include "keylock/crypto/sign_ed25519/ed25519.hpp"
 
 namespace keylock::crypto {
 

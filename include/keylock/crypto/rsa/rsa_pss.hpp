@@ -3,9 +3,9 @@
 #include <utility>
 
 #include "keylock/crypto/rng/randombytes.hpp"
-#include "keylock/crypto/sign_common/hash_route.hpp"
-#include "keylock/crypto/sign_rsa/rsa_keys.hpp"
-#include "keylock/crypto/sign_rsa/rsa_math.hpp"
+#include "keylock/crypto/rsa/rsa_keys.hpp"
+#include "keylock/crypto/rsa/rsa_math.hpp"
+#include "keylock/crypto/signature/common/hash_route.hpp"
 
 namespace keylock::crypto::sign_rsa::pss {
 

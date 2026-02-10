@@ -1,8 +1,8 @@
 #pragma once
 
 #include "keylock/crypto/rng/randombytes.hpp"
-#include "keylock/crypto/sign_common/hash_route.hpp"
-#include "keylock/crypto/sign_rsa/rsa_core.hpp"
+#include "keylock/crypto/rsa/rsa_core.hpp"
+#include "keylock/crypto/signature/common/hash_route.hpp"
 
 namespace keylock::crypto::sign_rsa::oaep {
 
