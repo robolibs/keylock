@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.0.18] - 2026-02-10
+
+### <!-- 0 -->⛰️  Features
+
+- Add ECDSA and Ed25519 DER key format helpers
+- Add RSA OAEP, PKCS1 key formats, and CRT tooling
+- Implement RSA keygen with 65537 and strict key checks
+
+### <!-- 2 -->🚜 Refactor
+
+- Rename sign_* crypto folders to algorithm names
+
+### <!-- 6 -->🧪 Testing
+
+- Add OpenSSL interoperability signature vectors
+
 ## [0.0.17] - 2026-02-09
 
 ### <!-- 0 -->⛰️  Features
