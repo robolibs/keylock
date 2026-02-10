@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.19] - 2026-02-10
+
+### <!-- 0 -->⛰️  Features
+
+- Add secp256k1 ECDSA signing and verification
+
 ## [0.0.18] - 2026-02-10
 
 ### <!-- 0 -->⛰️  Features
