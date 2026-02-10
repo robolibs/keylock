@@ -2,6 +2,18 @@
 #include <doctest/doctest.h>
 #include <stdexcept>
 
+namespace {
+    bool read_u32_be(const std::vector<uint8_t> &blob, size_t &offset, uint32_t &v) {
+        if (offset + 4 > blob.size()) {
+            return false;
+        }
+        v = (static_cast<uint32_t>(blob[offset]) << 24) | (static_cast<uint32_t>(blob[offset + 1]) << 16) |
+            (static_cast<uint32_t>(blob[offset + 2]) << 8) | static_cast<uint32_t>(blob[offset + 3]);
+        offset += 4;
+        return true;
+    }
+} // namespace
+
 TEST_SUITE("Key Generation") {
     TEST_CASE("Symmetric key generation") {
         keylock::keylock crypto;
@@ -65,13 +77,41 @@ TEST_SUITE("Key Generation") {
         REQUIRE(ok.success);
     }
 
-    TEST_CASE("RSA key generation placeholder supports sign/verify") {
+    TEST_CASE("RSA key generation uses 65537 and supports sign/verify") {
         keylock::keylock crypto(keylock::keylock::Algorithm::RSA_PKCS1v15_SHA256);
 
         auto keypair = crypto.generate_keypair();
         CHECK(keypair.algorithm == keylock::keylock::Algorithm::RSA_PKCS1v15_SHA256);
         CHECK(!keypair.public_key.empty());
         CHECK(!keypair.private_key.empty());
+
+        size_t off = 0;
+        uint32_t n_len = 0;
+        uint32_t e_len = 0;
+        REQUIRE(read_u32_be(keypair.public_key, off, n_len));
+        REQUIRE(off + n_len <= keypair.public_key.size());
+        off += n_len;
+        REQUIRE(read_u32_be(keypair.public_key, off, e_len));
+        REQUIRE(off + e_len == keypair.public_key.size());
+        std::vector<uint8_t> e(keypair.public_key.begin() + static_cast<std::ptrdiff_t>(off), keypair.public_key.end());
+        CHECK(e == std::vector<uint8_t>{0x01, 0x00, 0x01});
+
+        size_t off_priv = 0;
+        uint32_t n2 = 0, e2 = 0, d_len = 0;
+        REQUIRE(read_u32_be(keypair.private_key, off_priv, n2));
+        REQUIRE(off_priv + n2 <= keypair.private_key.size());
+        off_priv += n2;
+        REQUIRE(read_u32_be(keypair.private_key, off_priv, e2));
+        REQUIRE(off_priv + e2 <= keypair.private_key.size());
+        std::vector<uint8_t> e_priv(keypair.private_key.begin() + static_cast<std::ptrdiff_t>(off_priv),
+                                    keypair.private_key.begin() + static_cast<std::ptrdiff_t>(off_priv + e2));
+        off_priv += e2;
+        REQUIRE(read_u32_be(keypair.private_key, off_priv, d_len));
+        REQUIRE(off_priv + d_len == keypair.private_key.size());
+        std::vector<uint8_t> d(keypair.private_key.begin() + static_cast<std::ptrdiff_t>(off_priv),
+                               keypair.private_key.end());
+        CHECK(e_priv == std::vector<uint8_t>{0x01, 0x00, 0x01});
+        CHECK(d != e_priv);
 
         std::vector<uint8_t> msg{'r', 's', 'a'};
         auto sig = crypto.sign(msg, keypair.private_key);

@@ -1,4 +1,4 @@
-#include "keylock/crypto/sign_ed25519/ed25519.hpp"
+#include "keylock/crypto/ed25519/ed25519.hpp"
 #include <doctest/doctest.h>
 
 #include <cstring>
@@ -61,7 +61,8 @@ TEST_SUITE("Ed25519 Digital Signatures") {
         keylock::crypto::ed25519::sign_detached(sig, nullptr, nullptr, 0, sk);
 
         std::string sig_hex = bytes_to_hex(sig, 64);
-        CHECK(sig_hex == "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b");
+        CHECK(sig_hex == "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b"
+                         "46bd25bf5f0595bbe24655141438e7a100b");
 
         // Verify
         int result = keylock::crypto::ed25519::verify_detached(sig, nullptr, 0, pk);
@@ -79,7 +80,8 @@ TEST_SUITE("Ed25519 Digital Signatures") {
         keylock::crypto::ed25519::sign_detached(sig, nullptr, msg, 1, sk);
 
         std::string sig_hex = bytes_to_hex(sig, 64);
-        CHECK(sig_hex == "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00");
+        CHECK(sig_hex == "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11"
+                         "d8c387b2eaeb4302aeeb00d291612bb0c00");
 
         // Verify
         int result = keylock::crypto::ed25519::verify_detached(sig, msg, 1, pk);

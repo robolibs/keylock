@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "keylock/crypto/sign_rsa/rsa_math.hpp"
+#include "keylock/crypto/rsa/rsa_math.hpp"
 
 TEST_SUITE("RSA Math Foundations") {
     using namespace keylock::crypto::sign_rsa::math;

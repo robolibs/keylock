@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include <keylock/crypto/sign_ecdsa_p256/ecdsa_p256.hpp>
+#include <keylock/crypto/ecdsa_p256/ecdsa_impl.hpp>
 #include <keylock/keylock.hpp>
 
 TEST_SUITE("ECDSA Context Integration") {

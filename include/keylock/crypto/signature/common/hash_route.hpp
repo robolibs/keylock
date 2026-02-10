@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <utility>
 
-#include "keylock/crypto/sign_common/dp_echo_compat.hpp"
+#include "keylock/crypto/signature/common/dp_echo_compat.hpp"
 
 #include "keylock/hash/sha256/sha256.hpp"
 #include "keylock/hash/sha512/sha512.hpp"

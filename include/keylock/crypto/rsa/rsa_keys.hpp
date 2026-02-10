@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keylock/crypto/sign_common/dp_echo_compat.hpp"
+#include "keylock/crypto/signature/common/dp_echo_compat.hpp"
 
 namespace keylock::crypto::sign_rsa {
 
@@ -16,7 +16,17 @@ namespace keylock::crypto::sign_rsa {
         Bytes modulus;          // n
         Bytes public_exponent;  // e
         Bytes private_exponent; // d
+        Bytes prime_p;          // p (optional)
+        Bytes prime_q;          // q (optional)
+        Bytes crt_dp;           // d mod (p-1) (optional)
+        Bytes crt_dq;           // d mod (q-1) (optional)
+        Bytes crt_qinv;         // q^{-1} mod p (optional)
     };
+
+    inline bool has_crt_parameters(const RsaPrivateKey &key) {
+        return !key.prime_p.empty() && !key.prime_q.empty() && !key.crt_dp.empty() && !key.crt_dq.empty() &&
+               !key.crt_qinv.empty();
+    }
 
     inline ValidationResult validate_public_key(const RsaPublicKey &key) {
         if (key.modulus.empty() || (key.modulus.size() == 1 && key.modulus[0] == 0)) {
@@ -43,7 +53,7 @@ namespace keylock::crypto::sign_rsa {
         }
 
         if (key.public_exponent.size() == 1 && key.public_exponent[0] < 3) {
-            echo::warn("rsa public exponent is non-standard (<3)");
+            return ValidationResult::err(dp::Error::invalid_argument("rsa public exponent must be >= 3"));
         }
 
         if (key.modulus.back() % 2U == 0) {
@@ -64,6 +74,12 @@ namespace keylock::crypto::sign_rsa {
         if (key.private_exponent.size() > 1 && key.private_exponent[0] == 0x00) {
             return ValidationResult::err(
                 dp::Error::invalid_argument("rsa private exponent must be canonical big-endian"));
+        }
+
+        const bool any_crt = !key.prime_p.empty() || !key.prime_q.empty() || !key.crt_dp.empty() ||
+                             !key.crt_dq.empty() || !key.crt_qinv.empty();
+        if (any_crt && !has_crt_parameters(key)) {
+            return ValidationResult::err(dp::Error::invalid_argument("rsa crt parameters are incomplete"));
         }
         return ValidationResult::ok();
     }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "keylock/crypto/sign_common/dp_echo_compat.hpp"
-#include "keylock/crypto/sign_rsa/rsa_math.hpp"
+#include "keylock/crypto/rsa/rsa_math.hpp"
+#include "keylock/crypto/signature/common/dp_echo_compat.hpp"
 
 namespace keylock::crypto::sign_ecdsa_p256::field {
 

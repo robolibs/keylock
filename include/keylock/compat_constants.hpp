@@ -6,8 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "keylock/crypto/ed25519/ed25519.hpp"
 #include "keylock/crypto/rng/randombytes.hpp"
-#include "keylock/crypto/sign_ed25519/ed25519.hpp"
 
 // Generic hash (BLAKE2b)
 constexpr size_t crypto_generichash_BYTES = 32;

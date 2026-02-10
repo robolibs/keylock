@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
+#include "keylock/crypto/ecdsa_p256/ecdsa_der.hpp"
 #include "keylock/crypto/rng/randombytes.hpp"
-#include "keylock/crypto/sign_ecdsa_p256/ecdsa_der.hpp"
 
 TEST_SUITE("Signature Fuzz") {
     TEST_CASE("ECDSA DER decoder survives random byte corpus") {
