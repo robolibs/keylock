@@ -9,12 +9,13 @@
 #include "keylock/hash/blake2b/blake2b.hpp"
 #include "keylock/hash/hmac/hmac_sha256.hpp"
 #include "keylock/hash/hmac/hmac_sha512.hpp"
+#include "keylock/hash/keccak/keccak.hpp"
 #include "keylock/hash/sha256/sha256.hpp"
 #include "keylock/hash/sha512/sha512.hpp"
 
 namespace keylock::hash {
 
-    enum class Algorithm { SHA256, SHA512, BLAKE2b };
+    enum class Algorithm { SHA256, SHA512, BLAKE2b, KECCAK256 };
 
     struct Result {
         bool success;
@@ -30,6 +31,8 @@ namespace keylock::hash {
             case Algorithm::SHA512:
                 return 64;
             case Algorithm::BLAKE2b:
+                return 32;
+            case Algorithm::KECCAK256:
                 return 32;
             }
             return 0;
@@ -53,6 +56,10 @@ namespace keylock::hash {
             blake2b::hash(out.data(), 32, data.data(), data.size());
             return {true, out, ""};
         }
+        case Algorithm::KECCAK256:
+            std::vector<uint8_t> out(32);
+            keccak::hash_256(out.data(), data.data(), data.size());
+            return {true, out, ""};
         }
         return {false, {}, "Unsupported hash algorithm"};
     }
@@ -83,6 +90,8 @@ namespace keylock::hash {
             blake2b::keyed(mac.data(), 32, key.data(), key.size(), data.data(), data.size());
             return {true, mac, ""};
         }
+        case Algorithm::KECCAK256:
+            return {false, {}, "HMAC not supported for KECCAK256"};
         }
         return {false, {}, "Unsupported hash algorithm"};
     }
@@ -152,6 +161,12 @@ namespace keylock::hash {
             return prk_result;
         }
         return hkdf_expand(algo, prk_result.data, info, length);
+    }
+
+    inline Result keccak256(const std::vector<uint8_t> &data) {
+        std::vector<uint8_t> out(32);
+        keccak::hash_256(out.data(), data.data(), data.size());
+        return {true, out, ""};
     }
 
 } // namespace keylock::hash

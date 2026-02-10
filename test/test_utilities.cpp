@@ -75,11 +75,14 @@ TEST_SUITE("Utility Functions") {
               "SecretBox-XSalsa20-Poly1305");
         CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::X25519_Box) == "X25519-Box");
         CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::Ed25519) == "Ed25519");
+        CHECK(keylock::keylock::algorithm_to_string(keylock::keylock::Algorithm::ECDSA_SECP256K1_COMPACT) ==
+              "ECDSA-secp256k1-compact");
     }
 
     TEST_CASE("Hash algorithm name conversion") {
         CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::SHA256) == "SHA-256");
         CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::SHA512) == "SHA-512");
         CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::BLAKE2b) == "BLAKE2b");
+        CHECK(keylock::keylock::hash_algorithm_to_string(keylock::keylock::HashAlgorithm::KECCAK256) == "Keccak-256");
     }
 }

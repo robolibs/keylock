@@ -29,6 +29,7 @@
 #include "keylock/crypto/rsa/rsa_pkcs1.hpp"
 #include "keylock/crypto/rsa/rsa_pkcs1v15.hpp"
 #include "keylock/crypto/rsa/rsa_pss.hpp"
+#include "keylock/crypto/secp256k1/secp256k1.hpp"
 #include "keylock/crypto/secretbox_xsalsa20poly1305/secretbox.hpp"
 
 namespace keylock::crypto {
@@ -322,7 +323,8 @@ namespace keylock::crypto {
             RSA_OAEP_SHA256,
             RSA_OAEP_SHA384,
             RSA_OAEP_SHA512,
-            ECDSA_P256_SHA256
+            ECDSA_P256_SHA256,
+            ECDSA_SECP256K1_COMPACT
         };
 
         enum class KeyType { PUBLIC, PRIVATE };
@@ -548,6 +550,30 @@ namespace keylock::crypto {
                 }
                 return {true, std::vector<uint8_t>(sig.value().begin(), sig.value().end()), ""};
             }
+            case Algorithm::ECDSA_SECP256K1_COMPACT:
+                if (private_key.size() != 32) {
+                    return {false, {}, "Invalid secp256k1 private key size"};
+                }
+                {
+                    std::vector<uint8_t> digest;
+                    if (data.size() == 32) {
+                        digest = data;
+                    } else {
+                        digest.resize(32);
+                        hash::sha256::hash(digest.data(), data.data(), data.size());
+                    }
+
+                    auto sig = sign_secp256k1::sign_compact_digest32(digest, private_key);
+                    if (!sig.success) {
+                        return {false, {}, sig.error_message};
+                    }
+
+                    std::vector<uint8_t> out;
+                    out.reserve(65);
+                    out.insert(out.end(), sig.signature_compact.begin(), sig.signature_compact.end());
+                    out.push_back(sig.recovery_id);
+                    return {true, std::move(out), ""};
+                }
             default:
                 return {false, {}, "Unsupported signature algorithm"};
             }
@@ -630,6 +656,25 @@ namespace keylock::crypto {
                 }
                 return {ok.value(), {}, ok.value() ? "" : "ECDSA P-256 signature verification failed"};
             }
+            case Algorithm::ECDSA_SECP256K1_COMPACT: {
+                std::vector<uint8_t> digest;
+                if (data.size() == 32) {
+                    digest = data;
+                } else {
+                    digest.resize(32);
+                    hash::sha256::hash(digest.data(), data.data(), data.size());
+                }
+
+                const std::vector<uint8_t> *sig_ptr = &signature;
+                std::vector<uint8_t> compact_sig;
+                if (signature.size() == 65) {
+                    compact_sig.assign(signature.begin(), signature.begin() + 64);
+                    sig_ptr = &compact_sig;
+                }
+
+                auto ok = sign_secp256k1::verify_compact(digest, *sig_ptr, public_key);
+                return {ok.success, {}, ok.error_message};
+            }
             default:
                 return {false, {}, "Unsupported signature algorithm"};
             }
@@ -679,6 +724,28 @@ namespace keylock::crypto {
                 pair.public_key = encode_ecdsa_p256_public_key_blob(
                     std::vector<uint8_t>(pk.value().q.x.begin(), pk.value().q.x.end()),
                     std::vector<uint8_t>(pk.value().q.y.begin(), pk.value().q.y.end()));
+                return pair;
+            }
+            case Algorithm::ECDSA_SECP256K1_COMPACT: {
+                std::vector<uint8_t> d(32);
+                const std::vector<uint8_t> n(sign_secp256k1::field::order_n().begin(),
+                                             sign_secp256k1::field::order_n().end());
+
+                do {
+                    rng::randombytes_buf(d.data(), d.size());
+                } while (detail::is_zero_bytes(d) || detail::compare_be_bytes(d, n) >= 0);
+
+                auto pk = sign_secp256k1::derive_public_key(d);
+                if (pk.is_err()) {
+                    throw std::runtime_error("secp256k1 key generation failed");
+                }
+
+                KeyPair pair;
+                pair.algorithm = current_algorithm_;
+                pair.private_key = d;
+                pair.public_key.push_back(0x04);
+                pair.public_key.insert(pair.public_key.end(), pk.value().x.begin(), pk.value().x.end());
+                pair.public_key.insert(pair.public_key.end(), pk.value().y.begin(), pk.value().y.end());
                 return pair;
             }
             case Algorithm::RSA_PKCS1v15_SHA256:
@@ -814,6 +881,8 @@ namespace keylock::crypto {
                 return "RSA-OAEP-SHA512";
             case Algorithm::ECDSA_P256_SHA256:
                 return "ECDSA-P256-SHA256";
+            case Algorithm::ECDSA_SECP256K1_COMPACT:
+                return "ECDSA-secp256k1-compact";
             }
             return "Unknown";
         }
@@ -1109,6 +1178,37 @@ namespace keylock::crypto {
             return {true, std::vector<uint8_t>(raw.value().begin(), raw.value().end()), ""};
         }
 
+        static sign_secp256k1::RecoverResult recover_secp256k1_public_key(const std::vector<uint8_t> &digest32,
+                                                                          const std::vector<uint8_t> &sig64,
+                                                                          uint8_t recovery_id) {
+            return sign_secp256k1::recover_public_key(digest32, sig64, recovery_id);
+        }
+
+        static sign_secp256k1::VerifyResult verify_secp256k1_compact_signature(const std::vector<uint8_t> &digest32,
+                                                                               const std::vector<uint8_t> &sig64,
+                                                                               const std::vector<uint8_t> &public_key) {
+            return sign_secp256k1::verify_compact(digest32, sig64, public_key);
+        }
+
+        static bool is_secp256k1_low_s(const std::vector<uint8_t> &s32) { return sign_secp256k1::is_low_s(s32); }
+
+        static sign_secp256k1::NormalizeVResult normalize_ethereum_recovery_id(uint8_t v) {
+            return sign_secp256k1::normalize_recovery_id(v);
+        }
+
+        static CryptoResult ethereum_address_from_uncompressed_pubkey(const std::vector<uint8_t> &public_key) {
+            auto address = sign_secp256k1::ethereum_address_from_uncompressed_pubkey(public_key);
+            if (address.empty()) {
+                return {false, {}, "Invalid uncompressed secp256k1 public key: expected 65 bytes with 0x04 prefix"};
+            }
+            return {true, std::move(address), ""};
+        }
+
+        static CryptoResult keccak256(const std::vector<uint8_t> &data) {
+            auto r = ::keylock::hash::keccak256(data);
+            return {r.success, std::move(r.data), std::move(r.error_message)};
+        }
+
         static bool is_aes_gcm_available() { return aead_aes256gcm::is_available() != 0; }
 
         static std::string hash_algorithm_to_string(HashAlgorithm hash_algo) {
@@ -1119,6 +1219,8 @@ namespace keylock::crypto {
                 return "SHA-512";
             case HashAlgorithm::BLAKE2b:
                 return "BLAKE2b";
+            case HashAlgorithm::KECCAK256:
+                return "Keccak-256";
             }
             return "Unknown";
         }
@@ -1151,6 +1253,10 @@ namespace keylock::crypto {
                 if (key_type == KeyType::PUBLIC)
                     return 64;
                 return 32;
+            case Algorithm::ECDSA_SECP256K1_COMPACT:
+                if (key_type == KeyType::PUBLIC)
+                    return 65;
+                return 32;
             case Algorithm::XChaCha20_Poly1305:
             case Algorithm::ChaCha20_Poly1305:
             case Algorithm::AES256_GCM:
@@ -1173,7 +1279,8 @@ namespace keylock::crypto {
             return algo == Algorithm::Ed25519 || algo == Algorithm::RSA_PKCS1v15_SHA256 ||
                    algo == Algorithm::RSA_PSS_SHA256 || algo == Algorithm::RSA_PKCS1v15_SHA384 ||
                    algo == Algorithm::RSA_PSS_SHA384 || algo == Algorithm::RSA_PKCS1v15_SHA512 ||
-                   algo == Algorithm::RSA_PSS_SHA512 || algo == Algorithm::ECDSA_P256_SHA256;
+                   algo == Algorithm::RSA_PSS_SHA512 || algo == Algorithm::ECDSA_P256_SHA256 ||
+                   algo == Algorithm::ECDSA_SECP256K1_COMPACT;
         }
 
         CryptoResult aead_xchacha_encrypt(const std::vector<uint8_t> &plaintext, const std::vector<uint8_t> &key,
