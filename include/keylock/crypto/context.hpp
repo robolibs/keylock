@@ -96,6 +96,57 @@ namespace keylock::crypto {
             return true;
         }
 
+        inline void append_der_len(std::vector<uint8_t> &out, size_t len) {
+            if (len < 0x80) {
+                out.push_back(static_cast<uint8_t>(len));
+                return;
+            }
+            if (len <= 0xff) {
+                out.push_back(0x81);
+                out.push_back(static_cast<uint8_t>(len));
+                return;
+            }
+            out.push_back(0x82);
+            out.push_back(static_cast<uint8_t>((len >> 8) & 0xff));
+            out.push_back(static_cast<uint8_t>(len & 0xff));
+        }
+
+        inline bool read_der_len(const std::vector<uint8_t> &in, size_t &offset, size_t &len_out) {
+            if (offset >= in.size()) {
+                return false;
+            }
+            const uint8_t first = in[offset++];
+            if ((first & 0x80U) == 0) {
+                len_out = first;
+                return true;
+            }
+            const uint8_t n = static_cast<uint8_t>(first & 0x7fU);
+            if (n == 0 || n > 2 || offset + n > in.size()) {
+                return false;
+            }
+            len_out = 0;
+            for (uint8_t i = 0; i < n; ++i) {
+                len_out = (len_out << 8) | in[offset++];
+            }
+            return true;
+        }
+
+        inline bool expect_der_tlv(const std::vector<uint8_t> &in, size_t &offset, uint8_t expected_tag,
+                                   size_t &value_offset, size_t &value_len) {
+            if (offset >= in.size() || in[offset++] != expected_tag) {
+                return false;
+            }
+            if (!read_der_len(in, offset, value_len)) {
+                return false;
+            }
+            if (offset + value_len > in.size()) {
+                return false;
+            }
+            value_offset = offset;
+            offset += value_len;
+            return true;
+        }
+
         inline std::string dp_error_message(const dp::Error &error) { return std::string(error.message.c_str()); }
 
         inline int compare_be_bytes(const std::vector<uint8_t> &a, const std::vector<uint8_t> &b) {
@@ -832,6 +883,187 @@ namespace keylock::crypto {
                 std::vector<uint8_t>(key.value().public_exponent.begin(), key.value().public_exponent.end()),
                 std::vector<uint8_t>(key.value().private_exponent.begin(), key.value().private_exponent.end()));
             return {true, std::move(blob), ""};
+        }
+
+        static CryptoResult encode_ecdsa_p256_public_key_spki_der(const std::vector<uint8_t> &x,
+                                                                  const std::vector<uint8_t> &y) {
+            const auto raw = encode_ecdsa_p256_public_key_blob(x, y);
+            if (raw.size() != 64) {
+                return {false, {}, "Invalid ECDSA P-256 public key size"};
+            }
+
+            std::vector<uint8_t> out;
+            out.reserve(91);
+            out.push_back(0x30);
+            out.push_back(0x59);
+            out.push_back(0x30);
+            out.push_back(0x13);
+            out.insert(out.end(), {0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01});       // ecPublicKey
+            out.insert(out.end(), {0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07}); // prime256v1
+            out.push_back(0x03);
+            out.push_back(0x42);
+            out.push_back(0x00);
+            out.push_back(0x04);
+            out.insert(out.end(), raw.begin(), raw.end());
+            return {true, std::move(out), ""};
+        }
+
+        static CryptoResult decode_ecdsa_p256_public_key_spki_der(const std::vector<uint8_t> &der_bytes) {
+            size_t off = 0;
+            size_t seq_off = 0, seq_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, off, 0x30, seq_off, seq_len) || off != der_bytes.size()) {
+                return {false, {}, "Invalid ECDSA SPKI DER"};
+            }
+
+            size_t inner = seq_off;
+            size_t alg_off = 0, alg_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, inner, 0x30, alg_off, alg_len)) {
+                return {false, {}, "Invalid ECDSA algorithm identifier"};
+            }
+            const std::vector<uint8_t> expected_alg = {0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
+                                                       0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07};
+            if (alg_len != expected_alg.size()) {
+                return {false, {}, "Unsupported ECDSA SPKI parameters"};
+            }
+            for (size_t i = 0; i < alg_len; ++i) {
+                if (der_bytes[alg_off + i] != expected_alg[i]) {
+                    return {false, {}, "Unsupported ECDSA SPKI parameters"};
+                }
+            }
+
+            size_t bit_off = 0, bit_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, inner, 0x03, bit_off, bit_len) || inner != seq_off + seq_len) {
+                return {false, {}, "Invalid ECDSA SPKI public key"};
+            }
+            if (bit_len != 66 || der_bytes[bit_off] != 0x00 || der_bytes[bit_off + 1] != 0x04) {
+                return {false, {}, "Invalid ECDSA SPKI EC point"};
+            }
+            std::vector<uint8_t> raw(64);
+            for (size_t i = 0; i < 64; ++i) {
+                raw[i] = der_bytes[bit_off + 2 + i];
+            }
+            return {true, std::move(raw), ""};
+        }
+
+        static CryptoResult encode_ecdsa_p256_private_key_pkcs8_der(const std::vector<uint8_t> &d) {
+            const auto raw = encode_ecdsa_p256_private_key_blob(d);
+            if (raw.size() != 32) {
+                return {false, {}, "Invalid ECDSA P-256 private key size"};
+            }
+
+            std::vector<uint8_t> out = {
+                0x30, 0x41, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48,
+                0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03,
+                0x01, 0x07, 0x04, 0x27, 0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20,
+            };
+            out.insert(out.end(), raw.begin(), raw.end());
+            return {true, std::move(out), ""};
+        }
+
+        static CryptoResult decode_ecdsa_p256_private_key_pkcs8_der(const std::vector<uint8_t> &der_bytes) {
+            size_t off = 0;
+            size_t seq_off = 0, seq_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, off, 0x30, seq_off, seq_len) || off != der_bytes.size()) {
+                return {false, {}, "Invalid ECDSA PKCS8 DER"};
+            }
+
+            size_t inner = seq_off;
+            size_t ver_off = 0, ver_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, inner, 0x02, ver_off, ver_len) || ver_len != 1 ||
+                der_bytes[ver_off] != 0x00) {
+                return {false, {}, "Invalid ECDSA PKCS8 version"};
+            }
+
+            size_t alg_off = 0, alg_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, inner, 0x30, alg_off, alg_len)) {
+                return {false, {}, "Invalid ECDSA PKCS8 algorithm"};
+            }
+            const std::vector<uint8_t> expected_alg = {0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
+                                                       0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07};
+            if (alg_len != expected_alg.size()) {
+                return {false, {}, "Unsupported ECDSA PKCS8 parameters"};
+            }
+            for (size_t i = 0; i < alg_len; ++i) {
+                if (der_bytes[alg_off + i] != expected_alg[i]) {
+                    return {false, {}, "Unsupported ECDSA PKCS8 parameters"};
+                }
+            }
+
+            size_t priv_off = 0, priv_len = 0;
+            if (!detail::expect_der_tlv(der_bytes, inner, 0x04, priv_off, priv_len) || inner != seq_off + seq_len) {
+                return {false, {}, "Invalid ECDSA PKCS8 private key field"};
+            }
+            if (priv_len != 39 || der_bytes[priv_off] != 0x30 || der_bytes[priv_off + 1] != 0x25 ||
+                der_bytes[priv_off + 2] != 0x02 || der_bytes[priv_off + 3] != 0x01 || der_bytes[priv_off + 4] != 0x01 ||
+                der_bytes[priv_off + 5] != 0x04 || der_bytes[priv_off + 6] != 0x20) {
+                return {false, {}, "Unsupported ECDSA PKCS8 private key encoding"};
+            }
+            std::vector<uint8_t> raw(32);
+            for (size_t i = 0; i < 32; ++i) {
+                raw[i] = der_bytes[priv_off + 7 + i];
+            }
+            return {true, std::move(raw), ""};
+        }
+
+        static CryptoResult encode_ed25519_public_key_spki_der(const std::vector<uint8_t> &public_key) {
+            if (public_key.size() != 32) {
+                return {false, {}, "Invalid Ed25519 public key size"};
+            }
+            std::vector<uint8_t> out = {0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00};
+            out.insert(out.end(), public_key.begin(), public_key.end());
+            return {true, std::move(out), ""};
+        }
+
+        static CryptoResult decode_ed25519_public_key_spki_der(const std::vector<uint8_t> &der_bytes) {
+            if (der_bytes.size() != 44) {
+                return {false, {}, "Invalid Ed25519 SPKI length"};
+            }
+            const std::vector<uint8_t> prefix = {0x30, 0x2a, 0x30, 0x05, 0x06, 0x03,
+                                                 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00};
+            for (size_t i = 0; i < prefix.size(); ++i) {
+                if (der_bytes[i] != prefix[i]) {
+                    return {false, {}, "Invalid Ed25519 SPKI encoding"};
+                }
+            }
+            std::vector<uint8_t> raw(32);
+            for (size_t i = 0; i < 32; ++i) {
+                raw[i] = der_bytes[prefix.size() + i];
+            }
+            return {true, std::move(raw), ""};
+        }
+
+        static CryptoResult encode_ed25519_private_key_pkcs8_der(const std::vector<uint8_t> &private_key) {
+            if (private_key.size() != 32 && private_key.size() != 64) {
+                return {false, {}, "Invalid Ed25519 private key size"};
+            }
+            std::vector<uint8_t> seed(32);
+            for (size_t i = 0; i < 32; ++i) {
+                seed[i] = private_key[i];
+            }
+            std::vector<uint8_t> out = {
+                0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+            };
+            out.insert(out.end(), seed.begin(), seed.end());
+            return {true, std::move(out), ""};
+        }
+
+        static CryptoResult decode_ed25519_private_key_pkcs8_der(const std::vector<uint8_t> &der_bytes) {
+            if (der_bytes.size() != 48) {
+                return {false, {}, "Invalid Ed25519 PKCS8 length"};
+            }
+            const std::vector<uint8_t> prefix = {
+                0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+            };
+            for (size_t i = 0; i < prefix.size(); ++i) {
+                if (der_bytes[i] != prefix[i]) {
+                    return {false, {}, "Invalid Ed25519 PKCS8 encoding"};
+                }
+            }
+            std::vector<uint8_t> seed(32);
+            for (size_t i = 0; i < 32; ++i) {
+                seed[i] = der_bytes[prefix.size() + i];
+            }
+            return {true, std::move(seed), ""};
         }
 
         static std::vector<uint8_t> encode_ecdsa_p256_public_key_blob(const std::vector<uint8_t> &x,
