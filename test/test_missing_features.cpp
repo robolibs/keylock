@@ -8,7 +8,7 @@ TEST_SUITE("Missing Functionality Detection") {
 
     TEST_CASE("HMAC implementation available") {
         keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
-                              keylock::keylock::HashAlgorithm::SHA256);
+                                keylock::keylock::HashAlgorithm::SHA256);
         std::vector<uint8_t> data = {0x74, 0x65, 0x73, 0x74};
         std::vector<uint8_t> key = {0x6b, 0x65, 0x79};
 
@@ -19,7 +19,7 @@ TEST_SUITE("Missing Functionality Detection") {
 
     TEST_CASE("BLAKE2b hashing works") {
         keylock::keylock crypto(keylock::keylock::Algorithm::XChaCha20_Poly1305,
-                              keylock::keylock::HashAlgorithm::BLAKE2b);
+                                keylock::keylock::HashAlgorithm::BLAKE2b);
         auto result = crypto.hash({0x01, 0x02});
         CHECK(result.success);
         CHECK_FALSE(result.data.empty());
@@ -97,6 +97,19 @@ TEST_SUITE("Missing Functionality Detection") {
             auto sig = crypto.sign(test_data, keypair.private_key);
             if (!sig.success)
                 missing.push_back("Ed25519 signing");
+        }
+
+        {
+            keylock::keylock crypto(keylock::keylock::Algorithm::ECDSA_SECP256K1_COMPACT);
+            auto keypair = crypto.generate_keypair();
+            auto sig = crypto.sign(test_data, keypair.private_key);
+            if (!sig.success) {
+                missing.push_back("secp256k1 compact signing");
+            } else {
+                auto ok = crypto.verify(test_data, sig.data, keypair.public_key);
+                if (!ok.success)
+                    missing.push_back("secp256k1 compact verify");
+            }
         }
 
         CHECK(missing.empty());

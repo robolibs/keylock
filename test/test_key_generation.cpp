@@ -77,6 +77,23 @@ TEST_SUITE("Key Generation") {
         REQUIRE(ok.success);
     }
 
+    TEST_CASE("ECDSA secp256k1 key generation") {
+        keylock::keylock crypto(keylock::keylock::Algorithm::ECDSA_SECP256K1_COMPACT);
+
+        auto keypair = crypto.generate_keypair();
+        CHECK(keypair.algorithm == keylock::keylock::Algorithm::ECDSA_SECP256K1_COMPACT);
+        CHECK(keypair.public_key.size() == 65);
+        CHECK(keypair.private_key.size() == 32);
+
+        std::vector<uint8_t> msg{'s', 'e', 'c', 'p'};
+        auto sig = crypto.sign(msg, keypair.private_key);
+        REQUIRE(sig.success);
+        CHECK(sig.data.size() == 65);
+
+        auto ok = crypto.verify(msg, sig.data, keypair.public_key);
+        REQUIRE(ok.success);
+    }
+
     TEST_CASE("RSA key generation uses 65537 and supports sign/verify") {
         keylock::keylock crypto(keylock::keylock::Algorithm::RSA_PKCS1v15_SHA256);
 
