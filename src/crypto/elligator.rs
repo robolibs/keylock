@@ -71,11 +71,7 @@ fn legendre(a: &BigUint) -> i32 {
         return 0;
     }
     let result = a.modpow(&p_minus_one_over_two(), &prime());
-    if result.is_one() {
-        1
-    } else {
-        -1
-    }
+    if result.is_one() { 1 } else { -1 }
 }
 
 // sqrt(a) for p ≡ 5 (mod 8) using the Atkin shortcut, where a is known to be a

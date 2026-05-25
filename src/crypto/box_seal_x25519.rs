@@ -73,7 +73,11 @@ pub fn seal(message: &[u8], recipient_pk: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-pub fn seal_open(ciphertext: &[u8], recipient_pk: &[u8], recipient_sk: &[u8]) -> Result<Vec<u8>, String> {
+pub fn seal_open(
+    ciphertext: &[u8],
+    recipient_pk: &[u8],
+    recipient_sk: &[u8],
+) -> Result<Vec<u8>, String> {
     if ciphertext.len() < SEALBYTES {
         return Err("Sealed-box ciphertext too short".to_string());
     }

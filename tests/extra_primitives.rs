@@ -29,7 +29,10 @@ fn argon2id_derive_returns_requested_length() {
         32,
     )
     .expect("Argon2id derivation succeeds");
-    assert_eq!(key, key2, "Argon2id output must be deterministic for fixed inputs");
+    assert_eq!(
+        key, key2,
+        "Argon2id output must be deterministic for fixed inputs"
+    );
 }
 
 #[test]
@@ -60,7 +63,10 @@ fn skein_streebog_whirlpool_sm3_produce_expected_sizes() {
         legacy::streebog::hash_512(data).len(),
         legacy::streebog::BYTES_512
     );
-    assert_eq!(legacy::whirlpool::hash(data).len(), legacy::whirlpool::BYTES);
+    assert_eq!(
+        legacy::whirlpool::hash(data).len(),
+        legacy::whirlpool::BYTES
+    );
 }
 
 #[test]

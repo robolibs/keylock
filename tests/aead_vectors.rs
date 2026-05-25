@@ -1,8 +1,6 @@
 //! AEAD known-answer vectors.
 
-use keylock::crypto::{
-    aead_aes256gcm, aead_chacha20poly1305_ietf, aead_xchacha20poly1305_ietf,
-};
+use keylock::crypto::{aead_aes256gcm, aead_chacha20poly1305_ietf, aead_xchacha20poly1305_ietf};
 
 fn hex_bytes(s: &str) -> Vec<u8> {
     let bytes = s.as_bytes();
@@ -94,8 +92,7 @@ fn aead_modified_ciphertext_fails_authentication() {
     assert!(result.success);
     let mut tampered = result.data.clone();
     tampered[0] ^= 0x01;
-    let opened =
-        aead_chacha20poly1305_ietf::decrypt_with_nonce(&tampered, &key, aad, &nonce);
+    let opened = aead_chacha20poly1305_ietf::decrypt_with_nonce(&tampered, &key, aad, &nonce);
     assert!(!opened.success);
 }
 
@@ -103,14 +100,14 @@ fn aead_modified_ciphertext_fails_authentication() {
 fn aead_wrong_aad_fails_authentication() {
     let key = [0x55u8; aead_chacha20poly1305_ietf::KEYBYTES];
     let nonce = [0x66u8; aead_chacha20poly1305_ietf::NPUBBYTES];
-    let result = aead_chacha20poly1305_ietf::encrypt_with_nonce(
-        b"payload",
+    let result =
+        aead_chacha20poly1305_ietf::encrypt_with_nonce(b"payload", &key, b"original AAD", &nonce);
+    assert!(result.success);
+    let opened = aead_chacha20poly1305_ietf::decrypt_with_nonce(
+        &result.data,
         &key,
-        b"original AAD",
+        b"different AAD",
         &nonce,
     );
-    assert!(result.success);
-    let opened =
-        aead_chacha20poly1305_ietf::decrypt_with_nonce(&result.data, &key, b"different AAD", &nonce);
     assert!(!opened.success);
 }

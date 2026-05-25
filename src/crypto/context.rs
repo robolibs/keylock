@@ -187,7 +187,9 @@ impl Context {
             }
             Algorithm::Aes256Gcm => aead_aes256gcm::encrypt(plaintext, key, associated_data),
             Algorithm::SecretBoxXSalsa20 => secretbox_xsalsa20poly1305::encrypt(plaintext, key),
-            _ => CryptoResult::failure("Current algorithm is not suitable for symmetric encryption"),
+            _ => {
+                CryptoResult::failure("Current algorithm is not suitable for symmetric encryption")
+            }
         }
     }
 
@@ -210,7 +212,9 @@ impl Context {
             }
             Algorithm::Aes256Gcm => aead_aes256gcm::decrypt(ciphertext, key, associated_data),
             Algorithm::SecretBoxXSalsa20 => secretbox_xsalsa20poly1305::decrypt(ciphertext, key),
-            _ => CryptoResult::failure("Current algorithm is not suitable for symmetric decryption"),
+            _ => {
+                CryptoResult::failure("Current algorithm is not suitable for symmetric decryption")
+            }
         }
     }
 
@@ -222,16 +226,16 @@ impl Context {
                 Ok(ct) => CryptoResult::ok(ct),
                 Err(e) => CryptoResult::failure(e),
             },
-            Algorithm::RsaOaepSha256
-            | Algorithm::RsaOaepSha384
-            | Algorithm::RsaOaepSha512 => match ksrsa::encrypt_oaep(
-                plaintext,
-                public_key,
-                rsa_hash_from_algorithm(self.current_algorithm),
-            ) {
-                Ok(ct) => CryptoResult::ok(ct),
-                Err(e) => CryptoResult::failure(e),
-            },
+            Algorithm::RsaOaepSha256 | Algorithm::RsaOaepSha384 | Algorithm::RsaOaepSha512 => {
+                match ksrsa::encrypt_oaep(
+                    plaintext,
+                    public_key,
+                    rsa_hash_from_algorithm(self.current_algorithm),
+                ) {
+                    Ok(ct) => CryptoResult::ok(ct),
+                    Err(e) => CryptoResult::failure(e),
+                }
+            }
             _ => CryptoResult::failure("Current algorithm does not support asymmetric encryption"),
         }
     }
@@ -251,16 +255,16 @@ impl Context {
                     Err(e) => CryptoResult::failure(e),
                 }
             }
-            Algorithm::RsaOaepSha256
-            | Algorithm::RsaOaepSha384
-            | Algorithm::RsaOaepSha512 => match ksrsa::decrypt_oaep(
-                ciphertext,
-                private_key,
-                rsa_hash_from_algorithm(self.current_algorithm),
-            ) {
-                Ok(pt) => CryptoResult::ok(pt),
-                Err(e) => CryptoResult::failure(e),
-            },
+            Algorithm::RsaOaepSha256 | Algorithm::RsaOaepSha384 | Algorithm::RsaOaepSha512 => {
+                match ksrsa::decrypt_oaep(
+                    ciphertext,
+                    private_key,
+                    rsa_hash_from_algorithm(self.current_algorithm),
+                ) {
+                    Ok(pt) => CryptoResult::ok(pt),
+                    Err(e) => CryptoResult::failure(e),
+                }
+            }
             _ => CryptoResult::failure("Current algorithm does not support asymmetric decryption"),
         }
     }
@@ -602,13 +606,17 @@ impl Context {
         private_filename: impl AsRef<Path>,
         format: KeyFormat,
     ) -> bool {
-        self.save_key_to_file(&keypair.public_key, public_filename, KeyType::PUBLIC, format)
-            && self.save_key_to_file(
-                &keypair.private_key,
-                private_filename,
-                KeyType::PRIVATE,
-                format,
-            )
+        self.save_key_to_file(
+            &keypair.public_key,
+            public_filename,
+            KeyType::PUBLIC,
+            format,
+        ) && self.save_key_to_file(
+            &keypair.private_key,
+            private_filename,
+            KeyType::PRIVATE,
+            format,
+        )
     }
 
     pub fn load_keypair_from_files(
@@ -627,7 +635,9 @@ impl Context {
         match self.current_algorithm {
             Algorithm::X25519Box => Some(match key_type {
                 KeyType::Public => box_seal_x25519::PUBLICKEYBYTES,
-                KeyType::Private => box_seal_x25519::PUBLICKEYBYTES + box_seal_x25519::SECRETKEYBYTES,
+                KeyType::Private => {
+                    box_seal_x25519::PUBLICKEYBYTES + box_seal_x25519::SECRETKEYBYTES
+                }
             }),
             Algorithm::Ed25519 => Some(match key_type {
                 KeyType::Public => ed25519::PUBLICKEYBYTES,
@@ -965,10 +975,12 @@ impl Context {
 
 fn pem_label(algorithm: Algorithm, key_type: KeyType) -> &'static str {
     match (algorithm, key_type) {
-        (Algorithm::Ed25519, KeyType::Public)
-        | (Algorithm::EcdsaP256Sha256, KeyType::Public) => "PUBLIC KEY",
-        (Algorithm::Ed25519, KeyType::Private)
-        | (Algorithm::EcdsaP256Sha256, KeyType::Private) => "PRIVATE KEY",
+        (Algorithm::Ed25519, KeyType::Public) | (Algorithm::EcdsaP256Sha256, KeyType::Public) => {
+            "PUBLIC KEY"
+        }
+        (Algorithm::Ed25519, KeyType::Private) | (Algorithm::EcdsaP256Sha256, KeyType::Private) => {
+            "PRIVATE KEY"
+        }
         (Algorithm::RsaPkcs1v15Sha256, KeyType::Public)
         | (Algorithm::RsaPssSha256, KeyType::Public)
         | (Algorithm::RsaPkcs1v15Sha384, KeyType::Public)
@@ -1021,8 +1033,7 @@ fn pem_to_der(pem: &[u8]) -> Option<Vec<u8>> {
     base64_decode(&body)
 }
 
-const BASE64_ALPHABET: &[u8] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const BASE64_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 fn base64_encode(input: &[u8]) -> String {
     let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
@@ -1058,10 +1069,7 @@ fn base64_decode(input: &str) -> Option<Vec<u8>> {
             _ => None,
         }
     }
-    let bytes: Vec<u8> = input
-        .bytes()
-        .filter(|b| !b.is_ascii_whitespace())
-        .collect();
+    let bytes: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
     if bytes.is_empty() || bytes.len() % 4 != 0 {
         return None;
     }
@@ -1097,15 +1105,15 @@ fn left_pad(bytes: &[u8], width: usize) -> Vec<u8> {
 
 fn rsa_hash_from_algorithm(algorithm: Algorithm) -> HashAlgorithm {
     match algorithm {
-        Algorithm::RsaPkcs1v15Sha256
-        | Algorithm::RsaPssSha256
-        | Algorithm::RsaOaepSha256 => HashAlgorithm::Sha256,
-        Algorithm::RsaPkcs1v15Sha384
-        | Algorithm::RsaPssSha384
-        | Algorithm::RsaOaepSha384 => HashAlgorithm::Sha384,
-        Algorithm::RsaPkcs1v15Sha512
-        | Algorithm::RsaPssSha512
-        | Algorithm::RsaOaepSha512 => HashAlgorithm::Sha512,
+        Algorithm::RsaPkcs1v15Sha256 | Algorithm::RsaPssSha256 | Algorithm::RsaOaepSha256 => {
+            HashAlgorithm::Sha256
+        }
+        Algorithm::RsaPkcs1v15Sha384 | Algorithm::RsaPssSha384 | Algorithm::RsaOaepSha384 => {
+            HashAlgorithm::Sha384
+        }
+        Algorithm::RsaPkcs1v15Sha512 | Algorithm::RsaPssSha512 | Algorithm::RsaOaepSha512 => {
+            HashAlgorithm::Sha512
+        }
         _ => HashAlgorithm::Sha256,
     }
 }

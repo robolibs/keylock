@@ -71,7 +71,11 @@ pub fn sign_detached(message: &[u8], private_key: &[u8]) -> Result<Vec<u8>, Stri
     Ok(signature.to_bytes().to_vec())
 }
 
-pub fn verify_detached(message: &[u8], signature: &[u8], public_key: &[u8]) -> Result<bool, String> {
+pub fn verify_detached(
+    message: &[u8],
+    signature: &[u8],
+    public_key: &[u8],
+) -> Result<bool, String> {
     if signature.len() != SIGNATURE_BYTES {
         return Err(format!(
             "ECDSA P-256 signature must be {SIGNATURE_BYTES} bytes (got {})",
@@ -109,8 +113,8 @@ pub fn signature_to_der(raw: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 pub fn signature_from_der(der: &[u8]) -> Result<Vec<u8>, String> {
-    let sig = DerSignature::try_from(der)
-        .map_err(|_| "Invalid ECDSA P-256 DER signature".to_string())?;
+    let sig =
+        DerSignature::try_from(der).map_err(|_| "Invalid ECDSA P-256 DER signature".to_string())?;
     let raw: Signature = sig
         .try_into()
         .map_err(|_| "Invalid ECDSA P-256 signature components".to_string())?;

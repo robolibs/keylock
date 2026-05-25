@@ -3,7 +3,7 @@
 
 use keylock::crypto::{Context, ed25519, secp256k1};
 use keylock::hash::{
-    self, HashAlgorithm, blake2b, hkdf, hmac_sha256, hmac_sha512, keccak, sha256, sha3,
+    self, HashAlgorithm, blake2b, hkdf, hmac_sha256, hmac_sha512, keccak, sha3, sha256,
 };
 
 fn hex_bytes(s: &str) -> Vec<u8> {
@@ -29,7 +29,8 @@ const RFC5869_IKM: &str = "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b";
 const RFC5869_SALT: &str = "000102030405060708090a0b0c";
 const RFC5869_INFO: &str = "f0f1f2f3f4f5f6f7f8f9";
 const RFC5869_PRK: &str = "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5";
-const RFC5869_OKM: &str = "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865";
+const RFC5869_OKM: &str =
+    "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865";
 
 #[test]
 fn hkdf_sha256_rfc5869_extract_and_expand() {
@@ -164,7 +165,10 @@ fn ethereum_address_from_known_pubkey_yellow_paper() {
     .expect("derive public key from secret 1");
     let addr_result = Context::ethereum_address_from_uncompressed_pubkey(&pk);
     assert!(addr_result.success);
-    assert_eq!(hex(&addr_result.data), "7e5f4552091a69125d5dfcb7b8c2659029395bdf");
+    assert_eq!(
+        hex(&addr_result.data),
+        "7e5f4552091a69125d5dfcb7b8c2659029395bdf"
+    );
 }
 
 // ---------- HashAlgorithm dispatch sanity ----------
@@ -173,10 +177,7 @@ fn ethereum_address_from_known_pubkey_yellow_paper() {
 fn hash_dispatch_matches_individual_modules() {
     for (algo, expected) in [
         (HashAlgorithm::Sha256, hex(&sha256::hash(b"abc"))),
-        (
-            HashAlgorithm::Keccak256,
-            hex(&keccak::hash_256(b"abc")),
-        ),
+        (HashAlgorithm::Keccak256, hex(&keccak::hash_256(b"abc"))),
     ] {
         let result = hash::digest(algo, b"abc");
         assert!(result.success);

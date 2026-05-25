@@ -29,8 +29,8 @@ pub fn derive_public_key_from_secret(secret: &[u8]) -> Result<Vec<u8>, String> {
             secret.len()
         ));
     }
-    let signing_key = SigningKey::from_slice(secret)
-        .map_err(|_| "Invalid secp256k1 private key".to_string())?;
+    let signing_key =
+        SigningKey::from_slice(secret).map_err(|_| "Invalid secp256k1 private key".to_string())?;
     Ok(signing_key
         .verifying_key()
         .to_encoded_point(false)

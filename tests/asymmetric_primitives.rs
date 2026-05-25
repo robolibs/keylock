@@ -169,9 +169,12 @@ fn rsa_blob_pkcs1_der_roundtrip() {
     let (public, _) = rsa::generate_keypair().unwrap();
     let der = Context::decode_rsa_public_key_pkcs1_der(
         &Context::encode_rsa_public_key_pkcs1_der(
-            &public[4..4 + u32::from_be_bytes([public[0], public[1], public[2], public[3]]) as usize],
+            &public
+                [4..4 + u32::from_be_bytes([public[0], public[1], public[2], public[3]]) as usize],
             // we use the helper round-tripping the blob through the public DER path
-            &public[(4 + u32::from_be_bytes([public[0], public[1], public[2], public[3]]) as usize + 4)..],
+            &public[(4
+                + u32::from_be_bytes([public[0], public[1], public[2], public[3]]) as usize
+                + 4)..],
         )
         .data,
     );
@@ -231,11 +234,8 @@ fn secp256k1_recover_and_low_s_via_context() {
     assert!(signature.success);
 
     let digest = sha256::hash(message);
-    let recovered = secp256k1::recover_public_key(
-        &digest,
-        &signature.data[..64],
-        signature.data[64],
-    );
+    let recovered =
+        secp256k1::recover_public_key(&digest, &signature.data[..64], signature.data[64]);
     assert!(recovered.success, "{}", recovered.error_message);
     assert_eq!(recovered.public_key_uncompressed, pair.public_key);
 

@@ -41,8 +41,14 @@ pub fn generate_keypair_with_bits(bits: usize) -> Result<(Vec<u8>, Vec<u8>), Str
     let primes = private_key.primes();
     let p = primes.first().map(|p| p.to_bytes_be()).unwrap_or_default();
     let q = primes.get(1).map(|q| q.to_bytes_be()).unwrap_or_default();
-    let dp = private_key.dp().map(|x| x.to_bytes_be()).unwrap_or_default();
-    let dq = private_key.dq().map(|x| x.to_bytes_be()).unwrap_or_default();
+    let dp = private_key
+        .dp()
+        .map(|x| x.to_bytes_be())
+        .unwrap_or_default();
+    let dq = private_key
+        .dq()
+        .map(|x| x.to_bytes_be())
+        .unwrap_or_default();
     let qinv = private_key
         .qinv()
         .map(|x| x.to_bytes_be().1)
@@ -212,11 +218,7 @@ pub fn encode_private_blob_full(
     let mut out = encode_private_blob(modulus, exponent, private_exponent);
     // Append CRT only if at least one is non-empty; otherwise stay backward-
     // compatible with the short form.
-    if prime_p.is_empty()
-        && prime_q.is_empty()
-        && dp.is_empty()
-        && dq.is_empty()
-        && qinv.is_empty()
+    if prime_p.is_empty() && prime_q.is_empty() && dp.is_empty() && dq.is_empty() && qinv.is_empty()
     {
         return out;
     }
