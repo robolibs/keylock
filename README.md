@@ -11,9 +11,14 @@ C++ public API — same module hierarchy, same enum names, same blob
 layouts, same error-message shapes — so callers can move between the two
 implementations byte-for-byte.
 
+The sibling [`authbox`](../authbox) crate (PKI + DID toolkit) consumes
+keylock for **every** cryptographic primitive — keygen, sign, verify, hash,
+AEAD. If a project needs primitives it pulls keylock; if it needs X.509 /
+DID framing it pulls authbox.
+
 ## At a glance
 
-- **Status:** 98 tests passing, clippy clean
+- **Status:** 101 tests passing, clippy clean
 - **MSRV:** Rust 1.85 (uses edition 2024)
 - **License:** MIT
 
@@ -23,7 +28,7 @@ implementations byte-for-byte.
 |----------|------------|
 | AEAD | XChaCha20-Poly1305, ChaCha20-Poly1305 IETF, AES-256-GCM, SecretBox (XSalsa20-Poly1305) |
 | Block / stream | AES (block, CTR, CBC), ChaCha20, Poly1305 |
-| Signatures | Ed25519, ECDSA P-256 (RFC6979), ECDSA secp256k1 compact + recovery, RSA-PKCS1v1.5, RSA-PSS — SHA-256 / 384 / 512 each |
+| Signatures | Ed25519, Ed448, ECDSA P-256 (RFC6979), ECDSA P-384, ECDSA P-521, ECDSA secp256k1 compact + recovery, RSA-PKCS1v1.5, RSA-PSS — SHA-256 / 384 / 512 each |
 | Asymmetric encryption | X25519 sealed box, RSA-OAEP (SHA-256 / 384 / 512) |
 | Hashes | SHA-256, SHA-384, SHA-512, SHA-3, Keccak-256, BLAKE2b, BLAKE2s, BLAKE2xb XOF, SHAKE, KMAC, Skein-512, SM3, Streebog, Whirlpool |
 | MAC / KDF | HMAC (SHA-2 + BLAKE2b), HKDF (SHA-256 / 384 / 512), Argon2d / Argon2i / Argon2id |
@@ -36,6 +41,26 @@ implementations byte-for-byte.
 [dependencies]
 keylock = { path = "../keylock" }
 ```
+
+### Generate keypairs
+
+The ergonomic top-level helpers cover every asymmetric algorithm. They all
+return [`keylock::KeyPair`] (`{ public_key, private_key, algorithm }`).
+
+```rust
+let ed25519 = keylock::generate_ed25519_keypair()?;
+let ed448   = keylock::generate_ed448_keypair()?;
+let p256    = keylock::generate_ecdsa_p256_keypair()?;
+let p384    = keylock::generate_ecdsa_p384_keypair()?;
+let p521    = keylock::generate_ecdsa_p521_keypair()?;
+let k1      = keylock::generate_ecdsa_secp256k1_keypair()?;
+let x25519  = keylock::generate_x25519_keypair()?;
+let rsa     = keylock::generate_rsa_keypair()?;                 // 2048-bit
+let rsa3072 = keylock::generate_rsa_keypair_with_bits(3072)?;
+```
+
+For full algorithm dispatch (sign / verify / encrypt / decrypt / file I/O)
+use the [`Context`] surface.
 
 ### Encrypt and decrypt with an AEAD
 
@@ -61,6 +86,15 @@ let pair = ctx.generate_keypair().unwrap();
 let sig = ctx.sign(b"keylock", &pair.private_key);
 let ok = ctx.verify(b"keylock", &sig.data, &pair.public_key);
 assert!(ok.success);
+```
+
+### Hash convenience
+
+```rust
+let digest = keylock::keccak256(b"hello, web3");        // [u8; 32]
+let sha256 = keylock::hash::sha256::hash(b"message");   // Vec<u8>
+let sha384 = keylock::hash::sha384::hash(b"message");   // Vec<u8>
+let blake  = keylock::hash::blake2b::hash(b"message", 32).unwrap();
 ```
 
 ### Ethereum: recover a public key from a signature
@@ -135,6 +169,7 @@ assert_eq!(loaded.data, pair.public_key);
 
 ```
 keylock
+├── (top-level)                 — generate_*_keypair helpers + keccak256
 ├── crypto
 │   ├── Context                 — dispatcher matching keylock-cpp::Context
 │   ├── aead_aes256gcm          — AES-256-GCM
@@ -145,7 +180,10 @@ keylock
 │   ├── chacha20                — DJB / IETF / X variants
 │   ├── constant_time           — wipe + verify
 │   ├── ecdsa_p256              — sign / verify / DER
+│   ├── ecdsa_p384              — sign / verify / DER
+│   ├── ecdsa_p521              — sign / verify / DER
 │   ├── ed25519
+│   ├── ed448
 │   ├── elligator               — Elligator2 for Curve25519
 │   ├── poly1305
 │   ├── rng                     — randombytes_buf / randombytes_uniform
@@ -156,7 +194,7 @@ keylock
 │   ├── blake2b / blake2s / blake2x (XOF)
 │   ├── generichash / hkdf / hmac
 │   ├── keccak / kmac / shake
-│   ├── sha256 / sha512 / sha3
+│   ├── sha256 / sha384 / sha512 / sha3
 │   ├── skein
 │   └── legacy/                 — sm3, streebog, whirlpool
 ├── kdf
@@ -166,9 +204,11 @@ keylock
 
 ## API parity with `robolibs_cpp/keylock`
 
-- The 17 `Algorithm` enum entries are reproduced verbatim, including both
+- The `Algorithm` enum entries are reproduced verbatim, including both
   the modern `EcdsaSecp256k1Compact` and the C++-style alias
-  `ECDSA_SECP256K1_COMPACT`.
+  `ECDSA_SECP256K1_COMPACT`. P-384 / P-521 / Ed448 are added as
+  `EcdsaP384Sha384` / `EcdsaP521Sha512` / `Ed448` to extend the surface
+  needed by the sibling `authbox` crate.
 - `Context::algorithm_to_string` returns the exact strings the C++ port
   uses (e.g. `"ECDSA-secp256k1-compact"`, `"RSA-PKCS1v1.5-SHA256"`,
   `"ChaCha20-Poly1305-IETF"`).
@@ -188,8 +228,8 @@ keylock
 
 ```
 $ cargo test --release
-   running 98 tests across 15 test files
-   test result: ok. 98 passed; 0 failed
+   running 101 tests across 16 test files
+   test result: ok. 101 passed; 0 failed
 ```
 
 Vectors include:
