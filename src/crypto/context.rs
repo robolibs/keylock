@@ -9,7 +9,8 @@ use std::path::Path;
 
 use super::{
     aead_aes256gcm, aead_chacha20poly1305_ietf, aead_xchacha20poly1305_ietf, box_seal_x25519,
-    ecdsa_p256, ed25519, rsa as ksrsa, secp256k1, secretbox_xsalsa20poly1305,
+    ecdsa_p256, ecdsa_p384, ecdsa_p521, ed448, ed25519, rsa as ksrsa, secp256k1,
+    secretbox_xsalsa20poly1305,
 };
 use crate::hash::{self, HashAlgorithm};
 
@@ -31,7 +32,10 @@ pub enum Algorithm {
     RsaOaepSha384,
     RsaOaepSha512,
     EcdsaP256Sha256,
+    EcdsaP384Sha384,
+    EcdsaP521Sha512,
     EcdsaSecp256k1Compact,
+    Ed448,
 }
 
 #[allow(non_upper_case_globals)]
@@ -51,7 +55,10 @@ impl Algorithm {
     pub const RSA_OAEP_SHA384: Self = Self::RsaOaepSha384;
     pub const RSA_OAEP_SHA512: Self = Self::RsaOaepSha512;
     pub const ECDSA_P256_SHA256: Self = Self::EcdsaP256Sha256;
+    pub const ECDSA_P384_SHA384: Self = Self::EcdsaP384Sha384;
+    pub const ECDSA_P521_SHA512: Self = Self::EcdsaP521Sha512;
     pub const ECDSA_SECP256K1_COMPACT: Self = Self::EcdsaSecp256k1Compact;
+    pub const ED448: Self = Self::Ed448;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -375,6 +382,30 @@ impl Context {
             }
             Algorithm::EcdsaP256Sha256 => {
                 let (public, private) = ecdsa_p256::keypair()?;
+                Ok(KeyPair {
+                    public_key: public,
+                    private_key: private,
+                    algorithm: self.current_algorithm,
+                })
+            }
+            Algorithm::EcdsaP384Sha384 => {
+                let (public, private) = ecdsa_p384::keypair()?;
+                Ok(KeyPair {
+                    public_key: public,
+                    private_key: private,
+                    algorithm: self.current_algorithm,
+                })
+            }
+            Algorithm::EcdsaP521Sha512 => {
+                let (public, private) = ecdsa_p521::keypair()?;
+                Ok(KeyPair {
+                    public_key: public,
+                    private_key: private,
+                    algorithm: self.current_algorithm,
+                })
+            }
+            Algorithm::Ed448 => {
+                let (public, private) = ed448::keypair()?;
                 Ok(KeyPair {
                     public_key: public,
                     private_key: private,
@@ -958,7 +989,10 @@ impl Context {
             Algorithm::RsaOaepSha384 => "RSA-OAEP-SHA384",
             Algorithm::RsaOaepSha512 => "RSA-OAEP-SHA512",
             Algorithm::EcdsaP256Sha256 => "ECDSA-P256-SHA256",
+            Algorithm::EcdsaP384Sha384 => "ECDSA-P384-SHA384",
+            Algorithm::EcdsaP521Sha512 => "ECDSA-P521-SHA512",
             Algorithm::EcdsaSecp256k1Compact => "ECDSA-secp256k1-compact",
+            Algorithm::Ed448 => "Ed448",
         }
     }
 

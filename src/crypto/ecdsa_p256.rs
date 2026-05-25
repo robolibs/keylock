@@ -76,27 +76,31 @@ pub fn verify_detached(
     signature: &[u8],
     public_key: &[u8],
 ) -> Result<bool, String> {
-    if signature.len() != SIGNATURE_BYTES {
-        return Err(format!(
-            "ECDSA P-256 signature must be {SIGNATURE_BYTES} bytes (got {})",
-            signature.len()
-        ));
-    }
-    if public_key.len() != PUBLIC_KEY_BYTES {
-        return Err(format!(
-            "ECDSA P-256 public key must be {PUBLIC_KEY_BYTES} bytes (got {})",
-            public_key.len()
-        ));
-    }
-    let mut encoded = Vec::with_capacity(1 + PUBLIC_KEY_BYTES);
-    encoded.push(0x04);
-    encoded.extend_from_slice(public_key);
+    let encoded = match public_key.len() {
+        PUBLIC_KEY_BYTES => {
+            let mut buf = Vec::with_capacity(1 + PUBLIC_KEY_BYTES);
+            buf.push(0x04);
+            buf.extend_from_slice(public_key);
+            buf
+        }
+        len if len == 1 + PUBLIC_KEY_BYTES && public_key[0] == 0x04 => public_key.to_vec(),
+        len => {
+            return Err(format!(
+                "ECDSA P-256 public key must be {PUBLIC_KEY_BYTES} or {} bytes (got {len})",
+                1 + PUBLIC_KEY_BYTES
+            ));
+        }
+    };
     let point = EncodedPoint::from_bytes(&encoded)
         .map_err(|_| "Invalid ECDSA P-256 point encoding".to_string())?;
     let verifying_key = VerifyingKey::from_encoded_point(&point)
         .map_err(|_| "Invalid ECDSA P-256 public key".to_string())?;
-    let sig = Signature::from_slice(signature)
-        .map_err(|_| "Invalid ECDSA P-256 signature".to_string())?;
+    let sig = if signature.len() == SIGNATURE_BYTES {
+        Signature::from_slice(signature)
+    } else {
+        Signature::from_der(signature)
+    }
+    .map_err(|_| "Invalid ECDSA P-256 signature".to_string())?;
     Ok(verifying_key.verify(message, &sig).is_ok())
 }
 

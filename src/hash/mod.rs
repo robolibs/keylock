@@ -16,6 +16,7 @@ pub mod kmac;
 pub mod legacy;
 pub mod sha256;
 pub mod sha3;
+pub mod sha384;
 pub mod sha512;
 pub mod shake;
 pub mod skein;
