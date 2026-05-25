@@ -1,6 +1,6 @@
 [package]
 name = "keylock"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 description = "Pure Rust keylock compatibility crate extracted from authbox"
 license = "MIT"
