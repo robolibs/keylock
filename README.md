@@ -11,11 +11,6 @@ C++ public API — same module hierarchy, same enum names, same blob
 layouts, same error-message shapes — so callers can move between the two
 implementations byte-for-byte.
 
-The sibling [`authbox`](../authbox) crate (PKI + DID toolkit) consumes
-keylock for **every** cryptographic primitive — keygen, sign, verify, hash,
-AEAD. If a project needs primitives it pulls keylock; if it needs X.509 /
-DID framing it pulls authbox.
-
 ## At a glance
 
 - **Status:** 101 tests passing, clippy clean
@@ -39,7 +34,7 @@ DID framing it pulls authbox.
 
 ```toml
 [dependencies]
-keylock = { path = "../keylock" }
+keylock = { git = "https://codeberg.org/robolibs/keylock.git", tag = "0.1.0" }
 ```
 
 ### Generate keypairs
@@ -206,9 +201,8 @@ keylock
 
 - The `Algorithm` enum entries are reproduced verbatim, including both
   the modern `EcdsaSecp256k1Compact` and the C++-style alias
-  `ECDSA_SECP256K1_COMPACT`. P-384 / P-521 / Ed448 are added as
-  `EcdsaP384Sha384` / `EcdsaP521Sha512` / `Ed448` to extend the surface
-  needed by the sibling `authbox` crate.
+  `ECDSA_SECP256K1_COMPACT`. P-384 / P-521 / Ed448 extend the C++ surface
+  as `EcdsaP384Sha384` / `EcdsaP521Sha512` / `Ed448`.
 - `Context::algorithm_to_string` returns the exact strings the C++ port
   uses (e.g. `"ECDSA-secp256k1-compact"`, `"RSA-PKCS1v1.5-SHA256"`,
   `"ChaCha20-Poly1305-IETF"`).
