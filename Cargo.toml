@@ -5,14 +5,24 @@ edition = "2024"
 description = "Pure Rust keylock compatibility crate extracted from authbox"
 license = "MIT"
 publish = false
+include = [
+    "Cargo.toml",
+    "pyproject.toml",
+    "include/**/*.h",
+    "src/**/*.rs",
+    "tests/**/*.rs",
+]
 
 [lib]
 path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
 
 [features]
 default = []
 tracing = []
 config = []
+python = ["dep:pyo3"]
+python-extension = ["python"]
 
 [dependencies]
 aes = "0.8"
@@ -47,6 +57,10 @@ subtle = "2"
 whirlpool = "0.10"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 zeroize = "1"
+pyo3 = { version = "0.23", optional = true, features = [
+    "abi3-py39",
+    "extension-module",
+] }
 
 [dev-dependencies]
 x25519-dalek = "2"

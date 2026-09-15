@@ -1,7 +1,13 @@
+#![allow(clippy::collapsible_if, clippy::manual_is_multiple_of)]
+
 pub mod compat;
 pub mod crypto;
+pub mod ffi;
 pub mod hash;
 pub mod kdf;
+
+#[cfg(feature = "python")]
+pub mod python;
 
 #[allow(non_camel_case_types)]
 pub type keylock = crypto::Context;

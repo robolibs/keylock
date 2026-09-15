@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "keylock"
+version = "0.1.0"
+description = "Python bindings for keylock cryptographic compatibility helpers"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[tool.maturin]
+features = ["python"]
+module-name = "keylock"
