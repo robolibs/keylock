@@ -34,7 +34,7 @@ implementations byte-for-byte.
 
 ```toml
 [dependencies]
-keylock = { git = "https://codeberg.org/robolibs/keylock.git", tag = "0.1.0" }
+keylock = { git = "https://github.com/robolibs/keylock", tag = "0.1.0" }
 ```
 
 ### Generate keypairs
